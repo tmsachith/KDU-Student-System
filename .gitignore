@@ -1,0 +1,103 @@
+# IDE and Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Backup files
+*.backup
+*.bak
+*.old
+
+# Documentation build files
+docs/_build/
+site/
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Cache directories
+.cache/
+*.cache
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
+# Git
+*.orig
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.cert
+
+# Project specific documentation files that contain sensitive information
+ANDROID_BUILD_COMPLETE_FIX.md
+ANDROID_BUILD_FIX.md
+BUILD_COMPLETE_SUCCESS.md
+BUILD_FIX_FINAL.md
+BUILD_SUCCESS_FINAL.md
+CLEAN_BUILD_GRADLE.txt
+CRITICAL_BUILD_FIX.md
+CRITICAL_FILE_FIX.md
+EMAIL_VERIFICATION_SETUP.md
+FINAL_SUCCESS_GUIDE.md
+FIREBASE_SETUP.md
+MISSION_ACCOMPLISHED.md
+NOTIFICATION_IMPLEMENTATION.md
+NOTIFICATION_SETUP.md
+SDK_BUILD_RECOVERY.md
+SETUP.md
+TIME_FEATURE_COMPLETE.md
+URGENT_BUILD_FIX.md
+
+# Keep important documentation
+!README.md
+
+# Coverage reports
+coverage/
+*.lcov
+.nyc_output/
+
+# Test results
+test-results/
+junit.xml
