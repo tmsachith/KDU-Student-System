@@ -71,27 +71,45 @@ firebase-debug.*.log
 *.cert
 
 # Project specific documentation files that contain sensitive information
+ADMIN_FEEDBACK_HISTORY_COMPLETE.md
 ANDROID_BUILD_COMPLETE_FIX.md
+ANDROID_BUILD_FINAL_FIX.md
 ANDROID_BUILD_FIX.md
+android-build-gradle-backup.gradle
 BUILD_COMPLETE_SUCCESS.md
 BUILD_FIX_FINAL.md
 BUILD_SUCCESS_FINAL.md
+build-gradle-backup.gradle
 CLEAN_BUILD_GRADLE.txt
 CRITICAL_BUILD_FIX.md
 CRITICAL_FILE_FIX.md
+DASHBOARD_INSIGHTS_COMPLETE.md
 EMAIL_VERIFICATION_SETUP.md
+EVENT_SYSTEM_BUG_FIXES.md
+EVENT_SYSTEM_COMPLETE.md
+EVENT_SYSTEM_DOCUMENTATION.md
+EVENT_VIEW_ENHANCEMENT_COMPLETE.md
 FINAL_SUCCESS_GUIDE.md
 FIREBASE_SETUP.md
+google-services-backup.json
+IMAGE_UPLOAD_IMPLEMENTATION.md
+IMAGE_URL_SAVE_FIX_COMPLETE.md
 MISSION_ACCOMPLISHED.md
 NOTIFICATION_IMPLEMENTATION.md
 NOTIFICATION_SETUP.md
+PROFILE_IMAGE_IMPLEMENTATION.md
 SDK_BUILD_RECOVERY.md
 SETUP.md
+TAGS_AND_ADMIN_FEEDBACK_COMPLETE.md
+TAGS_INPUT_FIX_COMPLETE.md
+TAGS_INPUT_FIXED.md
 TIME_FEATURE_COMPLETE.md
 URGENT_BUILD_FIX.md
+VALIDATION_FAILED_FIX_COMPLETE.md
 
 # Keep important documentation
 !README.md
+!*/README.md
 
 # Coverage reports
 coverage/
@@ -101,3 +119,30 @@ coverage/
 # Test results
 test-results/
 junit.xml
+
+# Security and config files
+*.pem
+*.p12
+*.pfx
+google-services.json
+GoogleService-Info.plist
+.env*
+config.local.*
+secrets.*
+
+# Build artifacts
+build/
+dist/
+out/
+
+# Package managers
+node_modules/
+.pnp.*
+.yarn/
+package-lock.json
+yarn.lock
+
+# Runtime and temporary files
+*.pid
+*.lock
+.tmp/

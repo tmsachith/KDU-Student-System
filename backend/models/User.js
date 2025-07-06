@@ -39,6 +39,14 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  profileImageUrl: {
+    type: String,
+    default: null
+  },
+  googleProfileImageUrl: {
+    type: String,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now

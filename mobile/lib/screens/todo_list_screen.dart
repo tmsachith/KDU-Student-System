@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import '../providers/todo_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/todo.dart';
@@ -18,18 +19,39 @@ class _TodoListScreenState extends State<TodoListScreen>
   late TabController _tabController;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadTodos();
+
+    // Add listener for real-time search
+    _searchController.addListener(() {
+      // Immediate update for better responsiveness
+      if (mounted) {
+        setState(() {
+          _searchQuery = _searchController.text;
+        });
+      }
+
+      // Cancel previous timer if active
+      if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
+
+      // Optional: Add debounce for expensive operations if needed
+      _debounceTimer = Timer(const Duration(milliseconds: 200), () {
+        // Additional processing can go here if needed
+      });
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -46,84 +68,171 @@ class _TodoListScreenState extends State<TodoListScreen>
   Widget build(BuildContext context) {
     return Consumer2<TodoProvider, AuthProvider>(
       builder: (context, todoProvider, authProvider, child) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('My Tasks'),
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-            bottom: TabBar(
-              controller: _tabController,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
-              indicatorColor: Colors.white,
-              tabs: const [
-                Tab(text: 'All'),
-                Tab(text: 'Pending'),
-                Tab(text: 'Completed'),
+        return GestureDetector(
+          // Allow keyboard focus for desktop/web
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Scaffold(
+            appBar: AppBar(
+              title: _isSearching
+                  ? TextField(
+                      controller: _searchController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Search tasks...',
+                        hintStyle: const TextStyle(color: Colors.white70),
+                        border: InputBorder.none,
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear,
+                                    color: Colors.white),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  if (mounted) {
+                                    setState(() {
+                                      _searchQuery = '';
+                                    });
+                                  }
+                                },
+                              )
+                            : null,
+                      ),
+                      autofocus: true,
+                    )
+                  : const Text('My Tasks'),
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              bottom: TabBar(
+                controller: _tabController,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                indicatorColor: Colors.white,
+                tabs: const [
+                  Tab(text: 'All'),
+                  Tab(text: 'Pending'),
+                  Tab(text: 'Completed'),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  icon: Icon(_isSearching ? Icons.close : Icons.search),
+                  onPressed: () {
+                    if (mounted) {
+                      setState(() {
+                        _isSearching = !_isSearching;
+                        if (!_isSearching) {
+                          _searchController.clear();
+                          _searchQuery = '';
+                        }
+                      });
+                    }
+                  },
+                ),
               ],
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () => _showSearchDialog(context),
-              ),
-            ],
-          ),
-          body: Column(
-            children: [
-              // Search bar
-              if (_searchQuery.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  color: Colors.grey[100],
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Searching for: "$_searchQuery"',
-                          style: const TextStyle(fontStyle: FontStyle.italic),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          setState(() {
-                            _searchQuery = '';
-                            _searchController.clear();
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-              // Content
-              Expanded(
-                child: todoProvider.isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : todoProvider.error != null
-                        ? _buildErrorWidget(todoProvider.error!)
-                        : RefreshIndicator(
-                            onRefresh: () async => _loadTodos(),
-                            child: TabBarView(
-                              controller: _tabController,
-                              children: [
-                                _buildTodoList(
-                                    _getFilteredTodos(todoProvider.todos)),
-                                _buildTodoList(_getFilteredTodos(
-                                    todoProvider.pendingTodos)),
-                                _buildTodoList(_getFilteredTodos(
-                                    todoProvider.completedTodos)),
-                              ],
+            body: Column(
+              children: [
+                // Search status indicator
+                if (_isSearching && _searchQuery.isEmpty)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    color: Colors.blue[50],
+                    child: Row(
+                      children: [
+                        Icon(Icons.search, color: Colors.blue[700], size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Start typing to search tasks...',
+                            style: TextStyle(
+                              color: Colors.blue[700],
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
                             ),
                           ),
-              ),
-            ],
-          ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => _navigateToAddTodo(),
-            backgroundColor: Colors.blue,
-            child: const Icon(Icons.add, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Search results indicator
+                if (_searchQuery.isNotEmpty)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    color: Colors.blue[50],
+                    child: Row(
+                      children: [
+                        Icon(Icons.search, color: Colors.blue[700], size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Searching for: "$_searchQuery"',
+                            style: TextStyle(
+                              color: Colors.blue[700],
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${_getFilteredTodos(_getAllTodos(todoProvider)).length} found',
+                          style: TextStyle(
+                            color: Colors.blue[700],
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Content
+                Expanded(
+                  child: todoProvider.isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : todoProvider.error != null
+                          ? _buildErrorWidget(todoProvider.error!)
+                          : RefreshIndicator(
+                              onRefresh: () async => _loadTodos(),
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: [
+                                  // All todos
+                                  Builder(
+                                    builder: (context) {
+                                      final filteredTodos =
+                                          _getFilteredTodos(todoProvider.todos);
+                                      return _buildTodoList(filteredTodos);
+                                    },
+                                  ),
+                                  // Pending todos
+                                  Builder(
+                                    builder: (context) {
+                                      final filteredTodos = _getFilteredTodos(
+                                          todoProvider.pendingTodos);
+                                      return _buildTodoList(filteredTodos);
+                                    },
+                                  ),
+                                  // Completed todos
+                                  Builder(
+                                    builder: (context) {
+                                      final filteredTodos = _getFilteredTodos(
+                                          todoProvider.completedTodos);
+                                      return _buildTodoList(filteredTodos);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                ),
+              ],
+            ),
+            floatingActionButton: FloatingActionButton(
+              onPressed: () => _navigateToAddTodo(),
+              backgroundColor: Colors.blue,
+              child: const Icon(Icons.add, color: Colors.white),
+            ),
           ),
         );
       },
@@ -131,13 +240,95 @@ class _TodoListScreenState extends State<TodoListScreen>
   }
 
   List<Todo> _getFilteredTodos(List<Todo> todos) {
-    if (_searchQuery.isEmpty) return todos;
+    if (_searchQuery.isEmpty) {
+      return todos;
+    }
 
-    return todos
-        .where((todo) =>
-            todo.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            todo.description.toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
+    final query = _searchQuery.toLowerCase().trim();
+
+    if (query.isEmpty) {
+      return todos;
+    }
+
+    return todos.where((todo) {
+      final titleMatch = todo.title.toLowerCase().contains(query);
+      final descMatch = todo.description.toLowerCase().contains(query);
+      return titleMatch || descMatch;
+    }).toList();
+  }
+
+  List<Todo> _getAllTodos(TodoProvider todoProvider) {
+    return todoProvider.todos;
+  }
+
+  Widget _buildHighlightedText(
+    String text,
+    String query, {
+    bool isCompleted = false,
+    bool isTitle = true,
+  }) {
+    final baseStyle = TextStyle(
+      fontSize: isTitle ? 16 : 14,
+      fontWeight: isTitle ? FontWeight.bold : FontWeight.normal,
+      decoration:
+          isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
+      color: isCompleted
+          ? Colors.grey
+          : (isTitle ? Colors.black : Colors.grey[700]),
+    );
+
+    if (query.isEmpty) {
+      return Text(
+        text,
+        style: baseStyle,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    final List<TextSpan> spans = [];
+    final lowerText = text.toLowerCase();
+    final lowerQuery = query.toLowerCase();
+
+    int currentIndex = 0;
+    int startIndex = lowerText.indexOf(lowerQuery);
+
+    while (startIndex != -1) {
+      // Add text before the match
+      if (startIndex > currentIndex) {
+        spans.add(TextSpan(
+          text: text.substring(currentIndex, startIndex),
+          style: baseStyle,
+        ));
+      }
+
+      // Add highlighted match
+      spans.add(TextSpan(
+        text: text.substring(startIndex, startIndex + query.length),
+        style: baseStyle.copyWith(
+          backgroundColor: isCompleted ? Colors.grey[300] : Colors.yellow,
+          color: isCompleted ? Colors.grey[600] : Colors.black,
+          fontWeight: FontWeight.bold,
+        ),
+      ));
+
+      currentIndex = startIndex + query.length;
+      startIndex = lowerText.indexOf(lowerQuery, currentIndex);
+    }
+
+    // Add remaining text
+    if (currentIndex < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(currentIndex),
+        style: baseStyle,
+      ));
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
   }
 
   Widget _buildTodoList(List<Todo> todos) {
@@ -147,28 +338,32 @@ class _TodoListScreenState extends State<TodoListScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.task_alt,
+              _searchQuery.isNotEmpty ? Icons.search_off : Icons.task_alt,
               size: 64,
               color: Colors.grey[400],
             ),
             const SizedBox(height: 16),
             Text(
-              _searchQuery.isNotEmpty ? 'No tasks found' : 'No tasks yet',
+              _searchQuery.isNotEmpty
+                  ? 'No tasks found for "$_searchQuery"'
+                  : 'No tasks yet',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey[600],
               ),
+              textAlign: TextAlign.center,
             ),
-            if (_searchQuery.isEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Tap + to add your first task',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[500],
-                ),
+            const SizedBox(height: 8),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'Try searching with different keywords'
+                  : 'Tap + to add your first task',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
               ),
-            ],
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       );
@@ -236,16 +431,11 @@ class _TodoListScreenState extends State<TodoListScreen>
                       activeColor: Colors.green,
                     ),
                     Expanded(
-                      child: Text(
+                      child: _buildHighlightedText(
                         todo.title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          decoration: todo.completed
-                              ? TextDecoration.lineThrough
-                              : TextDecoration.none,
-                          color: todo.completed ? Colors.grey : Colors.black,
-                        ),
+                        _searchQuery.trim(),
+                        isCompleted: todo.completed,
+                        isTitle: true,
                       ),
                     ),
                     if (isOverdue)
@@ -286,17 +476,11 @@ class _TodoListScreenState extends State<TodoListScreen>
                 ),
                 if (todo.description.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(
+                  _buildHighlightedText(
                     todo.description,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: todo.completed ? Colors.grey : Colors.grey[700],
-                      decoration: todo.completed
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    _searchQuery.trim(),
+                    isCompleted: todo.completed,
+                    isTitle: false,
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -366,38 +550,6 @@ class _TodoListScreenState extends State<TodoListScreen>
           ElevatedButton(
             onPressed: _loadTodos,
             child: const Text('Try Again'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSearchDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Search Tasks'),
-        content: TextField(
-          controller: _searchController,
-          decoration: const InputDecoration(
-            labelText: 'Enter search term',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _searchQuery = _searchController.text;
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Search'),
           ),
         ],
       ),

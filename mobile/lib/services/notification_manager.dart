@@ -81,8 +81,44 @@ class NotificationManager {
         await getNotificationPreference('todo_reminders');
     if (!notificationsEnabled) return;
 
-    // Schedule multiple reminders based on user preferences
-    await NotificationService.scheduleMultipleTodoReminders(todo);
+    // Get user's custom reminder times
+    final reminderTimes = await getReminderTimes();
+    final now = DateTime.now();
+    final timeUntilDue = todo.dueDate.difference(now);
+
+    print('Setting up notifications for todo: ${todo.title}');
+    print('Time until due: ${timeUntilDue.inMinutes} minutes');
+    print(
+        'User reminder preferences: ${reminderTimes.map((r) => r.inMinutes).toList()} minutes');
+
+    // Schedule notifications based on user's preferences
+    for (final reminderTime in reminderTimes) {
+      // Only schedule if there's enough time before the due date
+      if (timeUntilDue.inMinutes >= reminderTime.inMinutes) {
+        print(
+            'Scheduling reminder ${reminderTime.inMinutes} minutes before due date');
+        await NotificationService.scheduleTodoReminder(
+          todo,
+          customReminder: reminderTime,
+        );
+      } else {
+        print(
+            'Skipping ${reminderTime.inMinutes}-minute reminder - not enough time');
+      }
+    }
+
+    // If no reminders could be scheduled from preferences, try a short-notice reminder
+    final scheduledAny = reminderTimes.any(
+        (reminderTime) => timeUntilDue.inMinutes >= reminderTime.inMinutes);
+
+    if (!scheduledAny && timeUntilDue.inMinutes >= 1) {
+      print(
+          'No custom reminders could be scheduled, setting 1-minute reminder');
+      await NotificationService.scheduleTodoReminder(
+        todo,
+        customReminder: const Duration(minutes: 1),
+      );
+    }
   }
 
   // Update notifications when todo is modified

@@ -21,10 +21,9 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize with tomorrow at 9:00 AM
+    // Initialize with today's date and current time + 1 hour
     final now = DateTime.now();
-    _selectedDate = DateTime(now.year, now.month, now.day)
-        .add(const Duration(days: 1, hours: 9));
+    _selectedDate = now.add(const Duration(hours: 1));
   }
 
   @override
@@ -178,22 +177,19 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
                 spacing: 8,
                 children: [
                   _buildQuickDateChip(
-                      'Today', DateTime.now().add(const Duration(hours: 2))),
+                      'Today', DateTime.now().add(const Duration(hours: 1))),
                   _buildQuickDateChip(
                       'Tomorrow',
-                      DateTime.now()
-                          .add(const Duration(days: 1))
-                          .copyWith(hour: 9, minute: 0)),
+                      DateTime.now().add(const Duration(days: 1)).copyWith(
+                          hour: 9, minute: 0, second: 0, millisecond: 0)),
                   _buildQuickDateChip(
                       'Next Week',
-                      DateTime.now()
-                          .add(const Duration(days: 7))
-                          .copyWith(hour: 9, minute: 0)),
+                      DateTime.now().add(const Duration(days: 7)).copyWith(
+                          hour: 9, minute: 0, second: 0, millisecond: 0)),
                   _buildQuickDateChip(
                       'Next Month',
-                      DateTime.now()
-                          .add(const Duration(days: 30))
-                          .copyWith(hour: 9, minute: 0)),
+                      DateTime.now().add(const Duration(days: 30)).copyWith(
+                          hour: 9, minute: 0, second: 0, millisecond: 0)),
                 ],
               ),
 
@@ -277,7 +273,9 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: _selectedDate.isAfter(DateTime.now())
+          ? _selectedDate
+          : DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
@@ -325,6 +323,8 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
             picked.day,
             timePicked.hour,
             timePicked.minute,
+            0, // seconds
+            0, // milliseconds
           );
         } else {
           // User cancelled time picker, preserve existing time
@@ -334,8 +334,15 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
             picked.day,
             _selectedDate.hour,
             _selectedDate.minute,
+            0, // seconds
+            0, // milliseconds
           );
         }
+
+        // Debug print to check the selected date/time
+        print('Selected date/time: $_selectedDate');
+        print('Is Local: ${_selectedDate.isUtc ? "UTC" : "Local"}');
+        print('Timezone offset: ${_selectedDate.timeZoneOffset}');
       });
     }
   }
@@ -361,14 +368,24 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
     );
 
     if (timePicked != null) {
+      final newDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        timePicked.hour,
+        timePicked.minute,
+        0, // seconds
+        0, // milliseconds
+      );
+
       setState(() {
-        _selectedDate = DateTime(
-          _selectedDate.year,
-          _selectedDate.month,
-          _selectedDate.day,
-          timePicked.hour,
-          timePicked.minute,
-        );
+        _selectedDate = newDateTime;
+
+        // Debug print to check the selected time
+        print('Selected time: ${timePicked.hour}:${timePicked.minute}');
+        print('Final DateTime: $_selectedDate');
+        print('Is Local: ${_selectedDate.isUtc ? "UTC" : "Local"}');
+        print('Timezone offset: ${_selectedDate.timeZoneOffset}');
       });
     }
   }
@@ -398,6 +415,15 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
       dueDate: _selectedDate,
       userId: authProvider.user!.id,
     );
+
+    // Debug print to check what's being saved
+    print('Saving todo with dueDate: ${todo.dueDate}');
+    print('Hour: ${todo.dueDate.hour}, Minute: ${todo.dueDate.minute}');
+    print('Is UTC: ${todo.dueDate.isUtc}');
+    print('Timezone offset: ${todo.dueDate.timeZoneOffset}');
+    print('ISO String: ${todo.dueDate.toIso8601String()}');
+    print('UTC ISO String: ${todo.dueDate.toUtc().toIso8601String()}');
+    print('Local String: ${todo.dueDate.toLocal()}');
 
     final success = await todoProvider.addTodo(authProvider.token!, todo);
 

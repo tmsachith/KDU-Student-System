@@ -162,3 +162,28 @@ config/production.json
 *.backup
 *.bak
 *.tmp
+
+# Uploads directory (if containing user uploads)
+uploads/*/
+!uploads/.gitkeep
+
+# Environment files
+.env*
+!.env.example
+
+# Security files
+google-services.json
+service-account-key.json
+*.pem
+*.p12
+*.pfx
+
+# Test files and coverage
+test-results/
+coverage/
+*.test.js.snap
+
+# Application logs
+app.log
+error.log
+access.log

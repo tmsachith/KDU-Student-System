@@ -139,7 +139,17 @@ router.post('/login', [
     }
 
     // Generate token
-    const token = generateToken(user._id);    res.json({
+    const token = generateToken(user._id);
+    
+    // Determine profile image URL
+    let profileImageUrl = null;
+    if (user.isGoogleUser && user.googleProfileImageUrl) {
+      profileImageUrl = user.googleProfileImageUrl;
+    } else if (user.profileImageUrl) {
+      profileImageUrl = user.profileImageUrl;
+    }
+
+    res.json({
       message: 'Login successful',
       token,
       user: {
@@ -149,6 +159,8 @@ router.post('/login', [
         role: user.role,
         isEmailVerified: user.isEmailVerified,
         isGoogleUser: user.isGoogleUser,
+        profileImageUrl,
+        googleProfileImageUrl: user.googleProfileImageUrl,
         createdAt: user.createdAt,
         joinedDate: user.createdAt
       }
@@ -351,9 +363,23 @@ router.post('/google', [  body('idToken')
 
       // Check if user already exists
       let user = await User.findOne({ email: googleEmail });      if (user) {
-        // User exists, log them in
+        // User exists, update Google profile image if available and log them in
+        if (payload.picture && (!user.googleProfileImageUrl || user.googleProfileImageUrl !== payload.picture)) {
+          user.googleProfileImageUrl = payload.picture;
+          await user.save();
+        }
+
         const token = generateToken(user._id);
-          return res.json({
+        
+        // Determine profile image URL
+        let profileImageUrl = null;
+        if (user.isGoogleUser && user.googleProfileImageUrl) {
+          profileImageUrl = user.googleProfileImageUrl;
+        } else if (user.profileImageUrl) {
+          profileImageUrl = user.profileImageUrl;
+        }
+
+        return res.json({
           message: 'Google login successful',
           token,
           user: {
@@ -363,6 +389,8 @@ router.post('/google', [  body('idToken')
             role: user.role,
             isEmailVerified: user.isEmailVerified,
             isGoogleUser: user.isGoogleUser,
+            profileImageUrl,
+            googleProfileImageUrl: user.googleProfileImageUrl,
             createdAt: user.createdAt,
             joinedDate: user.createdAt
           }
@@ -376,6 +404,7 @@ router.post('/google', [  body('idToken')
           role: role || 'student', // Default to student for mobile app
           isGoogleUser: true,
           isEmailVerified: true, // Google emails are pre-verified
+          googleProfileImageUrl: payload.picture || null, // Store Google profile image
           emailVerificationToken: null,
           emailVerificationExpires: null
         });
@@ -385,7 +414,17 @@ router.post('/google', [  body('idToken')
         // Send welcome email
         await emailService.sendWelcomeEmail(user.email, user.name, user.role);
 
-        const token = generateToken(user._id);        return res.status(201).json({
+        const token = generateToken(user._id);
+        
+        // Determine profile image URL
+        let profileImageUrl = null;
+        if (user.isGoogleUser && user.googleProfileImageUrl) {
+          profileImageUrl = user.googleProfileImageUrl;
+        } else if (user.profileImageUrl) {
+          profileImageUrl = user.profileImageUrl;
+        }
+
+        return res.status(201).json({
           message: 'Google account registered successfully',
           token,
           user: {
@@ -395,6 +434,8 @@ router.post('/google', [  body('idToken')
             role: user.role,
             isEmailVerified: user.isEmailVerified,
             isGoogleUser: user.isGoogleUser,
+            profileImageUrl,
+            googleProfileImageUrl: user.googleProfileImageUrl,
             createdAt: user.createdAt,
             joinedDate: user.createdAt
           }
@@ -430,6 +471,14 @@ router.get('/profile', authenticateToken, async (req, res) => {
       });
     }
 
+    // Determine profile image URL
+    let profileImageUrl = null;
+    if (req.user.isGoogleUser && req.user.googleProfileImageUrl) {
+      profileImageUrl = req.user.googleProfileImageUrl;
+    } else if (req.user.profileImageUrl) {
+      profileImageUrl = req.user.profileImageUrl;
+    }
+
     res.json({
       user: {
         id: req.user._id,
@@ -438,6 +487,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
         role: req.user.role,
         isEmailVerified: req.user.isEmailVerified,
         isGoogleUser: req.user.isGoogleUser,
+        profileImageUrl,
+        googleProfileImageUrl: req.user.googleProfileImageUrl,
         createdAt: req.user.createdAt,
         joinedDate: req.user.createdAt,
         memberSince: req.user.createdAt,
@@ -457,6 +508,14 @@ router.get('/verify', authenticateToken, (req, res) => {
   // Check if email is verified (for dashboard access)
   const canAccessDashboard = req.user.isEmailVerified || req.user.isGoogleUser;
   
+  // Determine profile image URL
+  let profileImageUrl = null;
+  if (req.user.isGoogleUser && req.user.googleProfileImageUrl) {
+    profileImageUrl = req.user.googleProfileImageUrl;
+  } else if (req.user.profileImageUrl) {
+    profileImageUrl = req.user.profileImageUrl;
+  }
+  
   res.json({
     valid: true,
     canAccessDashboard,
@@ -467,6 +526,8 @@ router.get('/verify', authenticateToken, (req, res) => {
       role: req.user.role,
       isEmailVerified: req.user.isEmailVerified,
       isGoogleUser: req.user.isGoogleUser,
+      profileImageUrl,
+      googleProfileImageUrl: req.user.googleProfileImageUrl,
       createdAt: req.user.createdAt,
       joinedDate: req.user.createdAt
     }

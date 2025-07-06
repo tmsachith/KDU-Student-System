@@ -4,6 +4,9 @@ class User {
   final String email;
   final String role;
   final bool isEmailVerified;
+  final bool isGoogleUser;
+  final String? profileImageUrl;
+  final String? googleProfileImageUrl;
   final DateTime? createdAt;
 
   User({
@@ -12,8 +15,12 @@ class User {
     required this.email,
     this.role = 'student', // Default to student role for mobile app
     this.isEmailVerified = false,
+    this.isGoogleUser = false,
+    this.profileImageUrl,
+    this.googleProfileImageUrl,
     this.createdAt,
   });
+
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] ?? '',
@@ -21,6 +28,9 @@ class User {
       email: json['email'] ?? '',
       role: 'student', // Force student role for mobile app
       isEmailVerified: json['isEmailVerified'] ?? false,
+      isGoogleUser: json['isGoogleUser'] ?? false,
+      profileImageUrl: json['profileImageUrl'],
+      googleProfileImageUrl: json['googleProfileImageUrl'],
       createdAt:
           json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
     );
@@ -33,8 +43,19 @@ class User {
       'email': email,
       'role': 'student', // Always send student role from mobile
       'isEmailVerified': isEmailVerified,
+      'isGoogleUser': isGoogleUser,
+      'profileImageUrl': profileImageUrl,
+      'googleProfileImageUrl': googleProfileImageUrl,
       'createdAt': createdAt?.toIso8601String(),
     };
+  }
+
+  // Helper method to get the current profile image URL
+  String? get currentProfileImageUrl {
+    if (isGoogleUser && googleProfileImageUrl != null) {
+      return googleProfileImageUrl;
+    }
+    return profileImageUrl;
   }
 }
 

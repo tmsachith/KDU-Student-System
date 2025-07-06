@@ -1,0 +1,107 @@
+# KDU Student System - Comprehensive .gitignore Template
+# Use this template for new components or sub-projects
+
+# Dependencies
+node_modules/
+.pnp.*
+.yarn/
+
+# Build outputs
+build/
+dist/
+out/
+.next/
+
+# Environment files
+.env*
+!.env.example
+config.local.*
+secrets.*
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+*.iml
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs and temporary files
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.temp
+*.pid
+*.lock
+
+# Cache directories
+.cache/
+*.cache
+.npm/
+.eslintcache
+
+# Test and coverage
+coverage/
+*.lcov
+.nyc_output/
+test-results/
+junit.xml
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+google-services.json
+GoogleService-Info.plist
+
+# Security files
+*.pem
+*.p12
+*.pfx
+*.key
+*.crt
+*.cert
+*.jks
+*.keystore
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Archive and backup files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.backup
+*.bak
+*.old
+
+# Documentation (project-specific)
+*_COMPLETE.md
+*_FIX*.md
+*_SETUP.md
+*_IMPLEMENTATION.md
+*_DOCUMENTATION.md
+MISSION_ACCOMPLISHED.md
+FINAL_SUCCESS_GUIDE.md
+
+# Keep important files
+!README.md
+!LICENSE
+!CHANGELOG.md

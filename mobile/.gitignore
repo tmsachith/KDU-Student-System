@@ -167,3 +167,50 @@ coverage/
 
 # Flutter build cache
 .flutter-plugins-dependencies
+
+# Firebase and Google Services
+**/android/app/google-services.json
+**/ios/Runner/GoogleService-Info.plist
+**/ios/firebase_app_id_file.json
+
+# Environment and config files
+.env*
+config.local.*
+
+# Keystore files
+**/*.jks
+**/*.keystore
+**/key.properties
+**/keystore.properties
+
+# iOS signing
+**/ios/Runner.xcworkspace/xcshareddata/
+**/ios/Runner/Runner.entitlements
+
+# Platform specific build files
+**/android/app/release/
+**/android/key.jks
+**/android/keystore.jks
+
+# Test coverage
+coverage/
+test/.test_coverage.dart
+
+# Build artifacts for web
+**/web/canvaskit/
+
+# macOS build
+**/macos/Runner.xcworkspace/xcshareddata/
+
+# Generated files
+**/lib/generated/
+**/*.g.dart
+**/*.freezed.dart
+**/*.config.dart
+**/*.chopper.dart
+**/*.reflectable.dart
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3

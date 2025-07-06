@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/todo_provider.dart';
@@ -6,6 +7,7 @@ import '../models/todo.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
 import 'notification_settings_screen.dart';
+import 'notification_debug_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -110,6 +112,11 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   // Todo Management Section
                   _buildTodoPanel(context),
+
+                  const SizedBox(height: 24),
+
+                  // Events Section
+                  _buildEventsPanel(context),
                 ],
               ),
             ),
@@ -469,16 +476,21 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
             currentAccountPicture: CircleAvatar(
               backgroundColor: Colors.white,
-              child: Text(
-                (user?.name != null && user!.name.isNotEmpty)
-                    ? user.name.substring(0, 1).toUpperCase()
-                    : 'S',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
-              ),
+              backgroundImage: user?.currentProfileImageUrl != null
+                  ? NetworkImage(user!.currentProfileImageUrl!)
+                  : null,
+              child: user?.currentProfileImageUrl == null
+                  ? Text(
+                      (user?.name != null && user!.name.isNotEmpty)
+                          ? user.name.substring(0, 1).toUpperCase()
+                          : 'S',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    )
+                  : null,
             ),
           ),
 
@@ -528,6 +540,21 @@ class _DashboardScreenState extends State<DashboardScreen>
                     );
                   },
                 ),
+                // Debug option - only show in debug mode
+                if (kDebugMode)
+                  ListTile(
+                    leading: const Icon(Icons.bug_report, color: Colors.red),
+                    title: const Text('Notification Debug'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const NotificationDebugScreen()),
+                      );
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.settings, color: Colors.grey),
                   title: const Text('Settings'),
@@ -574,6 +601,55 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEventsPanel(BuildContext context) {
+    return Card(
+      color: Colors.purple[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.event, color: Colors.purple[700]),
+                const SizedBox(width: 8),
+                Text(
+                  'University Events',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.purple[700],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Discover and attend university and club events happening around campus.',
+              style: TextStyle(color: Colors.purple[600]),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/events');
+                },
+                icon: const Icon(Icons.calendar_month, color: Colors.white),
+                label: const Text('Browse Events',
+                    style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple[700],
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

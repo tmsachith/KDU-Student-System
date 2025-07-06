@@ -1,5 +1,14 @@
 import axios, { AxiosResponse } from 'axios';
 import { LoginRequest, RegisterRequest, AuthResponse, User } from '../types/auth';
+import { 
+  Event, 
+  CreateEventRequest, 
+  UpdateEventRequest, 
+  EventsResponse, 
+  AdminEventsResponse, 
+  EventStatistics,
+  EventFilters 
+} from '../types/event';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -194,6 +203,239 @@ export const userAPI = {
     }>;
   }> => {
     const response = await api.get('/users/stats/overview');
+    return response.data;
+  },
+};
+
+// Event API
+export const eventAPI = {
+  // Get all approved events
+  getEvents: async (filters: EventFilters = {}): Promise<EventsResponse> => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, value.toString());
+      }
+    });
+    
+    const response = await api.get(`/events?${params.toString()}`);
+    return response.data;
+  },
+
+  // Get event by ID
+  getEvent: async (id: string): Promise<{ event: Event }> => {
+    const response = await api.get(`/events/${id}`);
+    return response.data;
+  },
+
+  // Create new event (Club/Admin only)
+  createEvent: async (eventData: CreateEventRequest): Promise<{ message: string; event: Event }> => {
+    const response = await api.post('/events', eventData);
+    return response.data;
+  },
+
+  // Create new event with image upload (Club/Admin only)
+  createEventWithImage: async (eventData: CreateEventRequest, imageFile?: File): Promise<{ message: string; event: Event }> => {
+    if (imageFile) {
+      // Create FormData for multipart upload
+      const formData = new FormData();
+      
+      // Append all event data, filtering out empty optional fields
+      Object.entries(eventData).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          if (Array.isArray(value)) {
+            formData.append(key, JSON.stringify(value));
+          } else if (typeof value === 'boolean') {
+            formData.append(key, value.toString());
+          } else {
+            formData.append(key, value.toString());
+          }
+        }
+      });
+      
+      // Append image file
+      formData.append('eventImage', imageFile);
+      
+      const response = await api.post('/events', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } else {
+      // No image, send as JSON
+      const response = await api.post('/events', eventData);
+      return response.data;
+    }
+  },
+
+  // Update event (Creator/Admin only)
+  updateEvent: async (id: string, eventData: UpdateEventRequest): Promise<{ message: string; event: Event }> => {
+    const response = await api.put(`/events/${id}`, eventData);
+    return response.data;
+  },
+
+  // Update event with image upload (Creator/Admin only)
+  updateEventWithImage: async (id: string, eventData: UpdateEventRequest, imageFile?: File): Promise<{ message: string; event: Event }> => {
+    if (imageFile) {
+      // Create FormData for multipart upload
+      const formData = new FormData();
+      
+      // Append all event data, filtering out empty optional fields
+      Object.entries(eventData).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          if (Array.isArray(value)) {
+            formData.append(key, JSON.stringify(value));
+          } else if (typeof value === 'boolean') {
+            formData.append(key, value.toString());
+          } else {
+            formData.append(key, value.toString());
+          }
+        }
+      });
+      
+      // Append image file
+      formData.append('eventImage', imageFile);
+      
+      const response = await api.put(`/events/${id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } else {
+      // No image, send as JSON
+      const response = await api.put(`/events/${id}`, eventData);
+      return response.data;
+    }
+  },
+
+  // Delete event (Creator/Admin only)
+  deleteEvent: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete(`/events/${id}`);
+    return response.data;
+  },
+
+  // Get user's events (Club/Admin only)
+  getMyEvents: async (filters: EventFilters = {}): Promise<EventsResponse> => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, value.toString());
+      }
+    });
+    
+    const response = await api.get(`/events/my/events?${params.toString()}`);
+    return response.data;
+  },
+
+  // Get all events for admin review (Admin only)
+  getAdminEvents: async (filters: EventFilters = {}): Promise<AdminEventsResponse> => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, value.toString());
+      }
+    });
+    
+    const response = await api.get(`/events/admin/all?${params.toString()}`);
+    return response.data;
+  },
+
+  // Approve event (Admin only)
+  approveEvent: async (id: string): Promise<{ message: string; event: Event }> => {
+    const response = await api.put(`/events/${id}/approve`);
+    return response.data;
+  },
+
+  // Reject event (Admin only)
+  rejectEvent: async (id: string, reason?: string): Promise<{ message: string; event: Event }> => {
+    const response = await api.put(`/events/${id}/reject`, { reason });
+    return response.data;
+  },
+
+  // Get event statistics (Admin only)
+  getStatistics: async (): Promise<EventStatistics> => {
+    const response = await api.get('/events/stats/overview');
+    return response.data;
+  },
+
+  // Upload event image to Cloudinary
+  uploadEventImage: async (imageFile: File): Promise<{ success: boolean; message: string; imageUrl: string; publicId: string }> => {
+    const formData = new FormData();
+    formData.append('eventImage', imageFile);
+    
+    const response = await api.post('/events/upload-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  // Delete event image from Cloudinary
+  deleteEventImage: async (publicId: string): Promise<{ success: boolean; message: string }> => {
+    const response = await api.delete(`/events/delete-image/${publicId}`);
+    return response.data;
+  },
+
+  // Send feedback message to event creator (Admin only)
+  sendFeedback: async (eventId: string, message: string): Promise<{ message: string; event: Event }> => {
+    const response = await api.post(`/events/${eventId}/feedback`, { message });
+    return response.data;
+  },
+
+  // Get feedback messages for an event (Creator/Admin only)
+  getFeedback: async (eventId: string): Promise<{ 
+    feedback: Array<{
+      _id: string;
+      message: string;
+      sentBy: { _id: string; name: string; email: string; role: string };
+      sentAt: string;
+      isRead: boolean;
+    }> 
+  }> => {
+    const response = await api.get(`/events/${eventId}/feedback`);
+    return response.data;
+  },
+
+  // Mark feedback message as read (Creator only)
+  markFeedbackRead: async (eventId: string, feedbackId: string): Promise<{ message: string; feedbackId: string }> => {
+    const response = await api.put(`/events/${eventId}/feedback/${feedbackId}/read`);
+    return response.data;
+  },
+
+  // Get club user's event statistics (Club only)
+  getMyStatistics: async (): Promise<EventStatistics> => {
+    const response = await api.get('/events/stats/my');
+    return response.data;
+  },
+
+  // Track event view (for analytics)
+  trackEventView: async (id: string, platform: 'web' | 'mobile' = 'mobile'): Promise<{ message: string; viewCount: number }> => {
+    const response = await api.post(`/events/${id}/view`, { platform });
+    return response.data;
+  },
+
+  // Get detailed club analytics
+  getMyDetailedAnalytics: async (): Promise<{
+    topViewedEvents: Array<{
+      id: string;
+      title: string;
+      viewCount: number;
+      startDateTime: string;
+      isApproved: boolean;
+    }>;
+    recentViews: Array<{
+      _id: string;
+      count: number;
+    }>;
+    viewsByPlatform: Array<{
+      _id: string;
+      count: number;
+    }>;
+  }> => {
+    const response = await api.get('/events/stats/my/detailed');
     return response.data;
   },
 };

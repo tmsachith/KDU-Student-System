@@ -202,4 +202,94 @@ class AuthProvider extends ChangeNotifier {
       await refreshUserProfile();
     }
   }
+
+  // Update user name
+  Future<bool> updateUserName(String newName) async {
+    try {
+      if (!_isAuthenticated || TokenService.token == null) {
+        return false;
+      }
+
+      _isLoading = true;
+      notifyListeners();
+
+      final updatedUser = await ApiService.updateUserName(newName);
+
+      // Update local storage with fresh data
+      await TokenService.saveUser(updatedUser);
+
+      // Update the current user in memory
+      _user = updatedUser;
+      _error = null;
+      _isLoading = false;
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Upload profile image
+  Future<bool> uploadProfileImage(String imagePath) async {
+    try {
+      if (!_isAuthenticated || TokenService.token == null) {
+        return false;
+      }
+
+      _isLoading = true;
+      notifyListeners();
+
+      await ApiService.uploadProfileImage(imagePath);
+
+      // Get updated profile
+      final updatedUser = await ApiService.getUpdatedProfile();
+      await TokenService.saveUser(updatedUser);
+      _user = updatedUser;
+
+      _error = null;
+      _isLoading = false;
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Remove profile image
+  Future<bool> removeProfileImage() async {
+    try {
+      if (!_isAuthenticated || TokenService.token == null) {
+        return false;
+      }
+
+      _isLoading = true;
+      notifyListeners();
+
+      await ApiService.removeProfileImage();
+
+      // Get updated profile
+      final updatedUser = await ApiService.getUpdatedProfile();
+      await TokenService.saveUser(updatedUser);
+      _user = updatedUser;
+
+      _error = null;
+      _isLoading = false;
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
 }

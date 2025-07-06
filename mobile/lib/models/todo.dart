@@ -20,17 +20,29 @@ class Todo {
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) {
+    // Parse the date string and explicitly convert to local time
+    final dueDateString = json['dueDate'];
+    final dueDate = DateTime.parse(dueDateString);
+
+    // Debug print to check parsing
+    print('Parsing dueDate: $dueDateString');
+    print('Parsed as: $dueDate');
+    print('Is UTC: ${dueDate.isUtc}');
+    print('Converting to local: ${dueDate.toLocal()}');
+
     return Todo(
       id: json['id'] ?? json['_id'],
       title: json['title'] ?? '',
       description: json['description'] ?? '',
-      dueDate: DateTime.parse(json['dueDate']),
+      dueDate: dueDate.toLocal(),
       completed: json['completed'] ?? false,
       userId: json['userId'] ?? '',
-      createdAt:
-          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
-      updatedAt:
-          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt']).toLocal()
+          : null,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt']).toLocal()
+          : null,
     );
   }
 
@@ -39,11 +51,11 @@ class Todo {
       if (id != null) 'id': id,
       'title': title,
       'description': description,
-      'dueDate': dueDate.toIso8601String(),
+      'dueDate': dueDate.toUtc().toIso8601String(),
       'completed': completed,
       'userId': userId,
-      if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
-      if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
+      if (createdAt != null) 'createdAt': createdAt!.toUtc().toIso8601String(),
+      if (updatedAt != null) 'updatedAt': updatedAt!.toUtc().toIso8601String(),
     };
   }
 

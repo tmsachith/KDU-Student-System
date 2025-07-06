@@ -114,6 +114,8 @@ Thumbs.db
 .firebase/
 firebase-debug.log
 firebase-debug.*.log
+firebase.json
+.firebaserc
 
 # Tailwind CSS
 /src/**/*.css.map
@@ -133,7 +135,7 @@ build/
 .sentryclirc
 
 # Static site generators
-public/
+public/generated/
 
 # PWA
 **/sw.js
@@ -141,6 +143,7 @@ public/
 
 # Bundle analyzer
 /analyze/
+bundle-report.html
 
 # Local Netlify folder
 .netlify
@@ -148,9 +151,36 @@ public/
 # Cypress
 cypress/videos/
 cypress/screenshots/
+cypress/downloads/
 
 # Jest
 jest.config.js.bak
+
+# Testing
+e2e/test-results/
+test-results/
+playwright-report/
+
+# Vite
+dist-ssr/
+*.local
+
+# Turborepo
+.turbo/
+
+# Generated types
+src/types/generated/
+
+# Environment files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Security files
+*.pem
+*.p12
+*.pfx
 
 # Misc
 *.log
@@ -159,6 +189,5 @@ jest.config.js.bak
 *.pid.lock
 *.gz
 
-# Lock files (uncomment if you want to ignore them)
-# package-lock.json
-# yarn.lock
+# Lock files (keep package-lock.json but ignore yarn.lock if using npm)
+yarn.lock
