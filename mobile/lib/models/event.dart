@@ -20,6 +20,7 @@ class Event {
   final String eventType;
   final List<String> tags;
   final String? imageUrl;
+  final String? clubLogoUrl;
   final String? contactEmail;
   final String? contactPhone;
   final bool isPublic;
@@ -50,6 +51,7 @@ class Event {
     required this.eventType,
     this.tags = const [],
     this.imageUrl,
+    this.clubLogoUrl,
     this.contactEmail,
     this.contactPhone,
     this.isPublic = true,
@@ -90,6 +92,8 @@ class Event {
       eventType: json['eventType'] ?? 'other',
       tags: json['tags'] != null ? List<String>.from(json['tags']) : [],
       imageUrl: json['imageUrl'],
+      clubLogoUrl:
+          json['createdBy'] is Map ? json['createdBy']['clubLogoUrl'] : null,
       contactEmail: json['contactEmail'],
       contactPhone: json['contactPhone'],
       isPublic: json['isPublic'] ?? true,
@@ -128,6 +132,7 @@ class Event {
       'eventType': eventType,
       'tags': tags,
       'imageUrl': imageUrl,
+      'clubLogoUrl': clubLogoUrl,
       'contactEmail': contactEmail,
       'contactPhone': contactPhone,
       'isPublic': isPublic,
@@ -208,6 +213,7 @@ class Event {
     String? eventType,
     List<String>? tags,
     String? imageUrl,
+    String? clubLogoUrl,
     String? contactEmail,
     String? contactPhone,
     bool? isPublic,
@@ -237,6 +243,7 @@ class Event {
       eventType: eventType ?? this.eventType,
       tags: tags ?? this.tags,
       imageUrl: imageUrl ?? this.imageUrl,
+      clubLogoUrl: clubLogoUrl ?? this.clubLogoUrl,
       contactEmail: contactEmail ?? this.contactEmail,
       contactPhone: contactPhone ?? this.contactPhone,
       isPublic: isPublic ?? this.isPublic,

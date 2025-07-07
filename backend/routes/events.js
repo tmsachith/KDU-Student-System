@@ -63,7 +63,7 @@ router.get('/', async (req, res) => {
     }
 
     const events = await Event.find(filter)
-      .populate('createdBy', 'name email role')
+      .populate('createdBy', 'name email role clubLogoUrl')
       .populate('approvedBy', 'name email')
       .sort({ startDateTime: 1 })
       .skip(skip)
@@ -93,7 +93,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const event = await Event.findById(req.params.id)
-      .populate('createdBy', 'name email role')
+      .populate('createdBy', 'name email role clubLogoUrl')
       .populate('approvedBy', 'name email')
       .populate('rejectedBy', 'name email');
 
@@ -278,7 +278,7 @@ router.post('/', [
     await event.save();
 
     const populatedEvent = await Event.findById(event._id)
-      .populate('createdBy', 'name email role');
+      .populate('createdBy', 'name email role clubLogoUrl');
 
     res.status(201).json({
       message: 'Event created successfully and submitted for approval',
@@ -459,7 +459,7 @@ router.put('/:id', [
       eventId,
       updateData,
       { new: true, runValidators: true }
-    ).populate('createdBy', 'name email role')
+    ).populate('createdBy', 'name email role clubLogoUrl')
      .populate('approvedBy', 'name email')
      .populate('rejectedBy', 'name email');
 
@@ -543,7 +543,7 @@ router.get('/my/events', authenticateToken, requireEmailVerification, authorize(
     }
 
     const events = await Event.find(filter)
-      .populate('createdBy', 'name email role')
+      .populate('createdBy', 'name email role clubLogoUrl')
       .populate('approvedBy', 'name email')
       .populate('rejectedBy', 'name email')
       .sort({ createdAt: -1 })
@@ -601,7 +601,7 @@ router.get('/admin/all', authenticateToken, requireEmailVerification, authorize(
     }
 
     const events = await Event.find(filter)
-      .populate('createdBy', 'name email role')
+      .populate('createdBy', 'name email role clubLogoUrl')
       .populate('approvedBy', 'name email')
       .populate('rejectedBy', 'name email')
       .sort({ createdAt: -1 })
@@ -684,7 +684,7 @@ router.put('/:id/approve', authenticateToken, requireEmailVerification, authoriz
     await event.save();
 
     const populatedEvent = await Event.findById(eventId)
-      .populate('createdBy', 'name email role')
+      .populate('createdBy', 'name email role clubLogoUrl')
       .populate('approvedBy', 'name email');
 
     res.json({
@@ -741,7 +741,7 @@ router.put('/:id/reject', [
     await event.save();
 
     const populatedEvent = await Event.findById(eventId)
-      .populate('createdBy', 'name email role')
+      .populate('createdBy', 'name email role clubLogoUrl')
       .populate('rejectedBy', 'name email');
 
     res.json({
@@ -931,7 +931,7 @@ router.post('/:id/feedback', [
     await event.save();
 
     const populatedEvent = await Event.findById(eventId)
-      .populate('createdBy', 'name email role')
+      .populate('createdBy', 'name email role clubLogoUrl')
       .populate('approvedBy', 'name email')
       .populate('rejectedBy', 'name email')
       .populate('adminFeedback.sentBy', 'name email role');
@@ -1025,6 +1025,37 @@ router.get('/:id/feedback',
         return res.status(400).json({ message: 'Invalid event ID' });
       }
       res.status(500).json({ message: 'Server error while fetching feedback' });
+    }
+  }
+);
+
+// @route   GET /api/events/feedback/unread-count
+// @desc    Get total unread feedback count for user's events
+// @access  Private (Creator only, Email verified)
+router.get('/feedback/unread-count', 
+  authenticateToken, 
+  requireEmailVerification, 
+  async (req, res) => {
+    try {
+      // Find all events created by the user and count unread feedback
+      const events = await Event.find({ createdBy: req.user._id })
+        .select('adminFeedback');
+
+      let unreadCount = 0;
+      events.forEach(event => {
+        event.adminFeedback.forEach(feedback => {
+          if (!feedback.isRead) {
+            unreadCount++;
+          }
+        });
+      });
+
+      res.json({
+        unreadCount: unreadCount
+      });
+    } catch (error) {
+      console.error('Error fetching unread feedback count:', error);
+      res.status(500).json({ message: 'Server error while fetching unread feedback count' });
     }
   }
 );

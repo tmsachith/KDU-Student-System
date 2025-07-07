@@ -5,6 +5,9 @@ export interface User {
   role: 'student' | 'club' | 'admin';
   isEmailVerified?: boolean;
   isGoogleUser?: boolean;
+  profileImageUrl?: string;
+  googleProfileImageUrl?: string;
+  clubLogoUrl?: string;
   createdAt?: string;
   joinedDate?: string;
   memberSince?: string;

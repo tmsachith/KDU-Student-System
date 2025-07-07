@@ -14,6 +14,7 @@ type AuthAction =
   | { type: 'AUTH_SUCCESS'; payload: { user: User; token: string } }
   | { type: 'AUTH_FAILURE' }
   | { type: 'LOGOUT' }
+  | { type: 'UPDATE_USER'; payload: User }
   | { type: 'SET_LOADING'; payload: boolean };
 
 interface AuthContextType extends AuthState {
@@ -21,6 +22,8 @@ interface AuthContextType extends AuthState {
   register: (name: string, email: string, password: string, role?: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
+  updateUser: (updatedUser: User) => void;
+  refreshUser: () => Promise<void>;
   verifyEmail: (token: string) => Promise<{ success: boolean; message: string }>;
   resendVerification: (email: string) => Promise<{ success: boolean; message: string }>;
   getVerificationStatus: () => Promise<{ 
@@ -71,6 +74,11 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         token: null,
         isAuthenticated: false,
         isLoading: false,
+      };
+    case 'UPDATE_USER':
+      return {
+        ...state,
+        user: action.payload,
       };
     case 'SET_LOADING':
       return {
@@ -168,10 +176,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           return;
         }
         
-        dispatch({
-          type: 'AUTH_SUCCESS',
-          payload: { user: response.user, token },
-        });
+        // Get the latest user profile data
+        try {
+          const profileResponse = await authAPI.getProfile();
+          dispatch({
+            type: 'AUTH_SUCCESS',
+            payload: { user: profileResponse.user, token },
+          });
+          // Update localStorage with fresh profile data
+          localStorage.setItem('user', JSON.stringify(profileResponse.user));
+        } catch (profileError) {
+          // Fallback to token verification user data if profile fetch fails
+          dispatch({
+            type: 'AUTH_SUCCESS',
+            payload: { user: response.user, token },
+          });
+        }
       } else {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -227,6 +247,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const updateUser = (updatedUser: User) => {
+    console.log('AuthContext: Updating user data:', updatedUser);
+    dispatch({
+      type: 'UPDATE_USER',
+      payload: updatedUser,
+    });
+    // Update localStorage as well
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  };
+
+  const refreshUser = async () => {
+    try {
+      const response = await authAPI.getProfile();
+      dispatch({
+        type: 'UPDATE_USER',
+        payload: response.user,
+      });
+      localStorage.setItem('user', JSON.stringify(response.user));
+    } catch (error: any) {
+      console.error('Failed to refresh user data:', error);
+    }
+  };
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -239,6 +282,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     verifyEmail,
     resendVerification,
     getVerificationStatus,
+    updateUser,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

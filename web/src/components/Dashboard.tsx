@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import UserManagement from './UserManagement';
 import EventManagement from './EventManagement';
 import AdminEventManagement from './AdminEventManagement';
-import { userAPI, eventAPI } from '../services/api';
+import { userAPI, eventAPI, profileAPI } from '../services/api';
 
 const Dashboard: React.FC = () => {
-  const { user, logout, getVerificationStatus } = useAuth();
+  const { user, logout, getVerificationStatus, updateUser, refreshUser } = useAuth();
   const [verificationStatus, setVerificationStatus] = useState<any>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'dashboard' | 'user-management' | 'event-management' | 'admin-events'>('dashboard');
@@ -15,6 +15,16 @@ const Dashboard: React.FC = () => {
   const [dashboardStats, setDashboardStats] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+
+  // Club logo management state
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [logoSuccess, setLogoSuccess] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Unread feedback count state for club users
+  const [unreadFeedbackCount, setUnreadFeedbackCount] = useState(0);
+  const [loadingUnreadCount, setLoadingUnreadCount] = useState(false);
 
   useEffect(() => {
     const checkVerificationStatus = async () => {
@@ -31,6 +41,11 @@ const Dashboard: React.FC = () => {
     if (user) {
       checkVerificationStatus();
       fetchDashboardStats(); // Fetch stats when user loads
+      
+      // Fetch unread feedback count for club users
+      if (user.role === 'club') {
+        fetchUnreadFeedbackCount();
+      }
     }
   }, [user, getVerificationStatus]);
 
@@ -109,6 +124,19 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const fetchUnreadFeedbackCount = async () => {
+    try {
+      setLoadingUnreadCount(true);
+      const response = await eventAPI.getUnreadFeedbackCount();
+      setUnreadFeedbackCount(response.unreadCount);
+    } catch (err: any) {
+      console.error('Failed to fetch unread feedback count:', err);
+      setUnreadFeedbackCount(0);
+    } finally {
+      setLoadingUnreadCount(false);
+    }
+  };
+
   const calculatePercentage = (value: number, total: number): string => {
     if (total === 0) return '0%';
     return `${Math.round((value / total) * 100)}%`;
@@ -176,6 +204,79 @@ const Dashboard: React.FC = () => {
       </div>
     );
   }
+
+  // Club logo management functions
+  const handleLogoUpload = async (file: File) => {
+    try {
+      setUploadingLogo(true);
+      setLogoError(null);
+      setLogoSuccess(null);
+
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Invalid file type. Please upload JPEG, PNG, GIF, or WebP images only.');
+      }
+
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('File too large. Maximum size is 5MB.');
+      }
+
+      const response = await profileAPI.uploadClubLogo(file);
+      setLogoSuccess('Club logo uploaded successfully!');
+      
+      // Update user context with new user data
+      console.log('Updating user with new logo:', response.user.clubLogoUrl);
+      updateUser(response.user);
+      
+      setTimeout(() => setLogoSuccess(null), 5000);
+    } catch (error: any) {
+      setLogoError(error.response?.data?.message || error.message || 'Failed to upload club logo');
+      setTimeout(() => setLogoError(null), 5000);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    if (!window.confirm('Are you sure you want to remove your club logo?')) {
+      return;
+    }
+
+    try {
+      setUploadingLogo(true);
+      setLogoError(null);
+      setLogoSuccess(null);
+
+      const response = await profileAPI.removeClubLogo();
+      setLogoSuccess('Club logo removed successfully!');
+      
+      // Update user context with new user data
+      console.log('Removing logo, updated user:', response.user.clubLogoUrl);
+      updateUser(response.user);
+      
+      setTimeout(() => setLogoSuccess(null), 5000);
+    } catch (error: any) {
+      setLogoError(error.response?.data?.message || 'Failed to remove club logo');
+      setTimeout(() => setLogoError(null), 5000);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleLogoUpload(file);
+    }
+    // Clear the input value so the same file can be selected again
+    event.target.value = '';
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -246,14 +347,26 @@ const Dashboard: React.FC = () => {
                     Dashboard
                   </button>
                   <button
-                    onClick={() => setCurrentView('event-management')}
-                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                    onClick={() => {
+                      setCurrentView('event-management');
+                      // Refresh unread count when navigating to event management
+                      if (user?.role === 'club') {
+                        setTimeout(() => fetchUnreadFeedbackCount(), 100);
+                      }
+                    }}
+                    className={`relative px-3 py-1 rounded-md text-sm font-medium ${
                       currentView === 'event-management'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                   >
                     My Events
+                    {/* Unread Feedback Badge */}
+                    {unreadFeedbackCount > 0 && (
+                      <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+                        {unreadFeedbackCount > 99 ? '99+' : unreadFeedbackCount}
+                      </div>
+                    )}
                   </button>
                 </div>
               )}
@@ -300,7 +413,7 @@ const Dashboard: React.FC = () => {
         ) : currentView === 'admin-events' ? (
           <AdminEventManagement />
         ) : currentView === 'event-management' ? (
-          <EventManagement />
+          <EventManagement onUnreadCountChange={fetchUnreadFeedbackCount} />
         ) : (
           <>
             {/* User Information Cards */}
@@ -310,15 +423,25 @@ const Dashboard: React.FC = () => {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center">
-                    <span className="text-white font-semibold text-lg">
-                      {user?.name?.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                  {user?.role === 'club' && user?.clubLogoUrl ? (
+                    <img
+                      src={user.clubLogoUrl}
+                      alt="Club Logo"
+                      className="h-12 w-12 rounded-lg object-cover border-2 border-blue-200"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center">
+                      <span className="text-white font-semibold text-lg">
+                        {user?.name?.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Your Profile</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      {user?.role === 'club' ? 'Club Profile' : 'Your Profile'}
+                    </dt>
                     <dd className="text-lg font-medium text-gray-900">{user?.name}</dd>
                   </dl>
                 </div>
@@ -335,6 +458,72 @@ const Dashboard: React.FC = () => {
                   {user?.role?.toUpperCase()}
                 </span>
               </div>
+              
+              {/* Club Logo Management */}
+              {user?.role === 'club' && (
+                <div className="mt-3 border-t pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-500">Club Logo:</span>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={triggerFileInput}
+                        disabled={uploadingLogo}
+                        className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-500 disabled:opacity-50"
+                      >
+                        {uploadingLogo ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-1 h-3 w-3 text-blue-600" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            {user.clubLogoUrl ? 'Change' : 'Upload'}
+                          </>
+                        )}
+                      </button>
+                      {user?.clubLogoUrl && (
+                        <button
+                          onClick={handleLogoRemove}
+                          disabled={uploadingLogo}
+                          className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-600 hover:text-red-500 disabled:opacity-50"
+                        >
+                          <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Success/Error Messages */}
+                  {logoSuccess && (
+                    <div className="mt-2 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                      {logoSuccess}
+                    </div>
+                  )}
+                  {logoError && (
+                    <div className="mt-2 text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
+                      {logoError}
+                    </div>
+                  )}
+                  
+                  {/* Hidden file input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -844,6 +1033,12 @@ const Dashboard: React.FC = () => {
                     className="w-full text-left px-3 py-2 text-sm bg-gray-50 text-gray-700 rounded-md hover:bg-gray-100 transition-colors"
                   >
                     🔄 Refresh Data
+                  </button>
+                  <button 
+                    onClick={refreshUser}
+                    className="w-full text-left px-3 py-2 text-sm bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 transition-colors"
+                  >
+                    👤 Refresh Profile
                   </button>
                 </div>
               </div>

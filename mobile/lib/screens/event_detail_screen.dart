@@ -104,21 +104,60 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Organizer
+                  // Organizer with club logo
                   Row(
                     children: [
-                      Icon(
-                        Icons.group,
-                        size: 20,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Organized by ${event.organizer}',
-                        style: TextStyle(
+                      // Club logo if available
+                      if (event.clubLogoUrl != null &&
+                          event.clubLogoUrl!.isNotEmpty) ...[
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(6),
+                            border:
+                                Border.all(color: Colors.grey[300]!, width: 1),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(5),
+                            child: Image.network(
+                              event.clubLogoUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue,
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.group,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                      ] else ...[
+                        Icon(
+                          Icons.group,
+                          size: 20,
                           color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(
+                        child: Text(
+                          'Organized by ${event.organizer}',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ],

@@ -142,7 +142,11 @@ const EventTable: React.FC<EventTableProps> = ({ events, onEdit, onDelete, onVie
   );
 };
 
-const EventManagement: React.FC = () => {
+interface EventManagementProps {
+  onUnreadCountChange?: () => void;
+}
+
+const EventManagement: React.FC<EventManagementProps> = ({ onUnreadCountChange }) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -196,9 +200,12 @@ const EventManagement: React.FC = () => {
     isRead: boolean;
   }>>([]);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [unreadFeedbackCount, setUnreadFeedbackCount] = useState(0);
+  const [loadingUnreadCount, setLoadingUnreadCount] = useState(false);
 
   useEffect(() => {
     fetchEvents();
+    fetchUnreadFeedbackCount();
   }, [currentPage, filters]);
 
   useEffect(() => {
@@ -223,6 +230,8 @@ const EventManagement: React.FC = () => {
       setTotalPages(response.pagination.totalPages);
       setTotalEvents(response.pagination.totalEvents);
       setError('');
+      // Refresh unread feedback count when events are updated
+      fetchUnreadFeedbackCount();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch events');
     } finally {
@@ -378,8 +387,27 @@ const EventManagement: React.FC = () => {
       setEventFeedback(prev => prev.map(feedback => 
         feedback._id === feedbackId ? { ...feedback, isRead: true } : feedback
       ));
+      // Refresh unread count after marking as read
+      fetchUnreadFeedbackCount();
+      // Notify parent component to refresh its unread count
+      if (onUnreadCountChange) {
+        onUnreadCountChange();
+      }
     } catch (err: any) {
       console.error('Failed to mark feedback as read:', err);
+    }
+  };
+
+  const fetchUnreadFeedbackCount = async () => {
+    try {
+      setLoadingUnreadCount(true);
+      const response = await eventAPI.getUnreadFeedbackCount();
+      setUnreadFeedbackCount(response.unreadCount);
+    } catch (err: any) {
+      console.error('Failed to fetch unread feedback count:', err);
+      setUnreadFeedbackCount(0);
+    } finally {
+      setLoadingUnreadCount(false);
     }
   };
 
@@ -531,10 +559,14 @@ const EventManagement: React.FC = () => {
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="px-4 py-6 sm:px-0">
-          <h1 className="text-3xl font-bold text-gray-900">Event Management</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Create and manage your club events
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Event Management</h1>
+              <p className="mt-2 text-sm text-gray-600">
+                Create and manage your club events
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Success/Error Messages */}
@@ -568,15 +600,17 @@ const EventManagement: React.FC = () => {
               </div>
 
               {/* Create Event Button */}
-              <button
-                onClick={() => {
-                  resetForm();
-                  setShowCreateModal(true);
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Create Event
-              </button>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setShowCreateModal(true);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Create Event
+                </button>
+              </div>
             </div>
           </div>
         </div>

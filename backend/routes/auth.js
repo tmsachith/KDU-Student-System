@@ -161,6 +161,7 @@ router.post('/login', [
         isGoogleUser: user.isGoogleUser,
         profileImageUrl,
         googleProfileImageUrl: user.googleProfileImageUrl,
+        clubLogoUrl: user.clubLogoUrl,
         createdAt: user.createdAt,
         joinedDate: user.createdAt
       }
@@ -391,6 +392,7 @@ router.post('/google', [  body('idToken')
             isGoogleUser: user.isGoogleUser,
             profileImageUrl,
             googleProfileImageUrl: user.googleProfileImageUrl,
+            clubLogoUrl: user.clubLogoUrl,
             createdAt: user.createdAt,
             joinedDate: user.createdAt
           }
@@ -436,6 +438,7 @@ router.post('/google', [  body('idToken')
             isGoogleUser: user.isGoogleUser,
             profileImageUrl,
             googleProfileImageUrl: user.googleProfileImageUrl,
+            clubLogoUrl: user.clubLogoUrl,
             createdAt: user.createdAt,
             joinedDate: user.createdAt
           }
@@ -489,6 +492,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
         isGoogleUser: req.user.isGoogleUser,
         profileImageUrl,
         googleProfileImageUrl: req.user.googleProfileImageUrl,
+        clubLogoUrl: req.user.clubLogoUrl,
         createdAt: req.user.createdAt,
         joinedDate: req.user.createdAt,
         memberSince: req.user.createdAt,

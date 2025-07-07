@@ -405,6 +405,12 @@ export const eventAPI = {
     return response.data;
   },
 
+  // Get total unread feedback count for user's events (Creator only)
+  getUnreadFeedbackCount: async (): Promise<{ unreadCount: number }> => {
+    const response = await api.get('/events/feedback/unread-count');
+    return response.data;
+  },
+
   // Get club user's event statistics (Club only)
   getMyStatistics: async (): Promise<EventStatistics> => {
     const response = await api.get('/events/stats/my');
@@ -436,6 +442,53 @@ export const eventAPI = {
     }>;
   }> => {
     const response = await api.get('/events/stats/my/detailed');
+    return response.data;
+  },
+};
+
+// Profile API
+export const profileAPI = {
+  // Upload club logo (Club users only)
+  uploadClubLogo: async (file: File): Promise<{ message: string; logoUrl: string; user: User }> => {
+    const formData = new FormData();
+    formData.append('clubLogo', file);
+    
+    const response = await api.post('/profile/upload-club-logo', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  // Remove club logo (Club users only)
+  removeClubLogo: async (): Promise<{ message: string; user: User }> => {
+    const response = await api.delete('/profile/remove-club-logo');
+    return response.data;
+  },
+
+  // Update user name
+  updateName: async (name: string): Promise<{ message: string; user: User }> => {
+    const response = await api.put('/profile/name', { name });
+    return response.data;
+  },
+
+  // Upload profile image
+  uploadProfileImage: async (file: File): Promise<{ message: string; imageUrl: string; user: User }> => {
+    const formData = new FormData();
+    formData.append('profileImage', file);
+    
+    const response = await api.post('/profile/upload-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  // Remove profile image
+  removeProfileImage: async (): Promise<{ message: string; user: User }> => {
+    const response = await api.delete('/profile/remove-image');
     return response.data;
   },
 };

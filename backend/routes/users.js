@@ -46,6 +46,9 @@ router.get('/', authenticateToken, requireEmailVerification, authorize('admin'),
       role: user.role,
       isEmailVerified: user.isEmailVerified,
       isGoogleUser: user.isGoogleUser,
+      profileImageUrl: user.profileImageUrl,
+      googleProfileImageUrl: user.googleProfileImageUrl,
+      clubLogoUrl: user.clubLogoUrl,
       createdAt: user.createdAt
     }));
 
@@ -108,6 +111,9 @@ router.get('/:id', authenticateToken, requireEmailVerification, authorize('admin
       role: user.role,
       isEmailVerified: user.isEmailVerified,
       isGoogleUser: user.isGoogleUser,
+      profileImageUrl: user.profileImageUrl,
+      googleProfileImageUrl: user.googleProfileImageUrl,
+      clubLogoUrl: user.clubLogoUrl,
       createdAt: user.createdAt
     };
 
@@ -180,6 +186,9 @@ router.put('/:id', [
       role: user.role,
       isEmailVerified: user.isEmailVerified,
       isGoogleUser: user.isGoogleUser,
+      profileImageUrl: user.profileImageUrl,
+      googleProfileImageUrl: user.googleProfileImageUrl,
+      clubLogoUrl: user.clubLogoUrl,
       createdAt: user.createdAt
     };
 
@@ -275,6 +284,9 @@ router.post('/', [
         role: user.role,
         isEmailVerified: user.isEmailVerified,
         isGoogleUser: user.isGoogleUser,
+        profileImageUrl: user.profileImageUrl,
+        googleProfileImageUrl: user.googleProfileImageUrl,
+        clubLogoUrl: user.clubLogoUrl,
         createdAt: user.createdAt
       }
     });
@@ -316,6 +328,9 @@ router.put('/:id/toggle-verification', authenticateToken, requireEmailVerificati
         role: user.role,
         isEmailVerified: user.isEmailVerified,
         isGoogleUser: user.isGoogleUser,
+        profileImageUrl: user.profileImageUrl,
+        googleProfileImageUrl: user.googleProfileImageUrl,
+        clubLogoUrl: user.clubLogoUrl,
         createdAt: user.createdAt
       }
     });

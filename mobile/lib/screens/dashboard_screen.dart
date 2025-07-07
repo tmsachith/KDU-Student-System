@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/todo_provider.dart';
+import '../providers/event_provider.dart';
 import '../models/todo.dart';
+import '../models/event.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
-import 'notification_settings_screen.dart';
-import 'notification_debug_screen.dart';
+import 'event_detail_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -39,6 +39,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     _hasInitialized = true;
     await _loadRecentTodos();
+    await _loadRecentEvents();
     _lastRefreshTime = DateTime.now();
   }
 
@@ -49,6 +50,18 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (authProvider.token != null) {
       await todoProvider.loadTodos(authProvider.token!);
     }
+  }
+
+  Future<void> _loadRecentEvents() async {
+    final eventProvider = Provider.of<EventProvider>(context, listen: false);
+    // Load recent approved events
+    await eventProvider.fetchEvents(
+      refresh: true,
+      category: null,
+      eventType: null,
+      search: null,
+      upcoming: true,
+    );
   }
 
   @override
@@ -79,8 +92,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<AuthProvider, TodoProvider>(
-      builder: (context, authProvider, todoProvider, child) {
+    return Consumer3<AuthProvider, TodoProvider, EventProvider>(
+      builder: (context, authProvider, todoProvider, eventProvider, child) {
         return Scaffold(
           appBar: AppBar(
             title: const Text('KDU Student Portal'),
@@ -93,6 +106,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               _lastRefreshTime = DateTime.now();
               await _refreshUserData();
               await _loadRecentTodos();
+              await _loadRecentEvents();
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -105,106 +119,14 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   const SizedBox(height: 24),
 
-                  // Welcome Card
-                  _buildStudentPanel(),
-
-                  const SizedBox(height: 24),
-
-                  // Todo Management Section
-                  _buildTodoPanel(context),
-
-                  const SizedBox(height: 24),
-
-                  // Events Section
-                  _buildEventsPanel(context),
+                  // Recent Events Section
+                  _buildRecentEventsSection(context, eventProvider),
                 ],
               ),
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildStudentPanel() {
-    return Card(
-      color: Colors.green[50],
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.school, color: Colors.green[700]),
-                const SizedBox(width: 8),
-                Text(
-                  'Student Portal',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green[700],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Access your courses, join clubs, and participate in university activities.',
-              style: TextStyle(color: Colors.green[600]),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTodoPanel(BuildContext context) {
-    return Card(
-      color: Colors.orange[50],
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.task, color: Colors.orange[700]),
-                const SizedBox(width: 8),
-                Text(
-                  'Task Management',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange[700],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Organize your tasks, set deadlines, and track your progress.',
-              style: TextStyle(color: Colors.orange[600]),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/todos');
-                },
-                icon: const Icon(Icons.assignment, color: Colors.white),
-                label: const Text('Manage Tasks',
-                    style: TextStyle(color: Colors.white)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange[700],
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -527,35 +449,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                   },
                 ),
                 ListTile(
-                  leading:
-                      const Icon(Icons.notifications, color: Colors.purple),
-                  title: const Text('Notifications'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) =>
-                              const NotificationSettingsScreen()),
-                    );
-                  },
-                ),
-                // Debug option - only show in debug mode
-                if (kDebugMode)
-                  ListTile(
-                    leading: const Icon(Icons.bug_report, color: Colors.red),
-                    title: const Text('Notification Debug'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) =>
-                                const NotificationDebugScreen()),
-                      );
-                    },
-                  ),
-                ListTile(
                   leading: const Icon(Icons.settings, color: Colors.grey),
                   title: const Text('Settings'),
                   onTap: () {
@@ -605,52 +498,381 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildEventsPanel(BuildContext context) {
+  Widget _buildRecentEventsSection(
+      BuildContext context, EventProvider eventProvider) {
+    // Get recent upcoming events (limit to 5 for performance)
+    final recentEvents = eventProvider.events
+        .where((event) => event.isUpcoming || event.isOngoing)
+        .take(5)
+        .toList();
+
     return Card(
-      color: Colors.purple[50],
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      elevation: 0,
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(Icons.event, color: Colors.purple[700]),
-                const SizedBox(width: 8),
-                Text(
-                  'University Events',
+                const Text(
+                  'Recent Events',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.purple[700],
                   ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/events');
+                  },
+                  child: const Text('View All'),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Discover and attend university and club events happening around campus.',
-              style: TextStyle(color: Colors.purple[600]),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
+          ),
+          if (eventProvider.isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (recentEvents.isEmpty)
+            Container(
               width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/events');
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.event,
+                    size: 48,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No upcoming events',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Check back later for new events',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            SizedBox(
+              height: 220, // Fixed height for the horizontal scroll
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                itemCount: recentEvents.length,
+                itemBuilder: (context, index) {
+                  final event = recentEvents[index];
+                  return Container(
+                    width: 280, // Fixed width for each event card
+                    margin: EdgeInsets.only(
+                      right: index < recentEvents.length - 1 ? 12 : 0,
+                    ),
+                    child: _buildHorizontalEventCard(context, event),
+                  );
                 },
-                icon: const Icon(Icons.calendar_month, color: Colors.white),
-                label: const Text('Browse Events',
-                    style: TextStyle(color: Colors.white)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple[700],
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHorizontalEventCard(BuildContext context, Event event) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EventDetailScreen(event: event),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(15),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: Stack(
+            children: [
+              // Event Image
+              Container(
+                width: double.infinity,
+                height: double.infinity,
+                child: event.imageUrl != null && event.imageUrl!.isNotEmpty
+                    ? Image.network(
+                        event.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildHorizontalPlaceholderImage();
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return _buildHorizontalPlaceholderImage();
+                        },
+                      )
+                    : _buildHorizontalPlaceholderImage(),
+              ),
+
+              // Gradient overlay
+              Container(
+                width: double.infinity,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.4),
+                      Colors.black.withOpacity(0.1),
+                      Colors.black.withOpacity(0.6),
+                      Colors.black.withOpacity(0.85),
+                    ],
+                    stops: const [0.0, 0.3, 0.7, 1.0],
+                  ),
                 ),
+              ),
+
+              // Status chip
+              Positioned(
+                top: 8,
+                right: 8,
+                child: _buildHorizontalStatusChip(event),
+              ),
+
+              // Club logo
+              if (event.clubLogoUrl != null && event.clubLogoUrl!.isNotEmpty)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.network(
+                        event.clubLogoUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.group,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Event title and date
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        event.title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              offset: Offset(0, 2),
+                              blurRadius: 6,
+                              color: Colors.black87,
+                            ),
+                            Shadow(
+                              offset: Offset(0, 1),
+                              blurRadius: 3,
+                              color: Colors.black54,
+                            ),
+                          ],
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.access_time,
+                            size: 12,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _formatCompactDateTime(event.startDateTime),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                                shadows: [
+                                  Shadow(
+                                    offset: Offset(0, 2),
+                                    blurRadius: 6,
+                                    color: Colors.black87,
+                                  ),
+                                  Shadow(
+                                    offset: Offset(0, 1),
+                                    blurRadius: 3,
+                                    color: Colors.black54,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHorizontalPlaceholderImage() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.event,
+              size: 32,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Event Image',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 12,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildHorizontalStatusChip(Event event) {
+    Color color;
+    String text;
+
+    if (event.isOngoing) {
+      color = Colors.green;
+      text = 'Ongoing';
+    } else if (event.isUpcoming) {
+      color = Colors.blue;
+      text = 'Upcoming';
+    } else {
+      color = Colors.grey;
+      text = 'Past';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  String _formatCompactDateTime(DateTime dateTime) {
+    // Compact format: "Dec 15 at 2:30 PM"
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+
+    final month = months[dateTime.month - 1];
+    final day = dateTime.day;
+
+    final hour = dateTime.hour;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+
+    return '$month $day at $displayHour:$minute $period';
   }
 }
