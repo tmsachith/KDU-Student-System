@@ -449,6 +449,22 @@ class _DashboardScreenState extends State<DashboardScreen>
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.event, color: Colors.purple),
+                  title: const Text('Events'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/events');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.forum, color: Colors.green),
+                  title: const Text('Discussion Forum'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/discussions');
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.settings, color: Colors.grey),
                   title: const Text('Settings'),
                   onTap: () {

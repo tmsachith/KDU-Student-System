@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/todo_provider.dart';
 import 'providers/event_provider.dart';
+import 'providers/discussion_provider.dart';
 import 'services/notification_manager.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -10,6 +11,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/todo_list_screen.dart';
 import 'screens/add_todo_screen.dart';
 import 'screens/events_list_screen.dart';
+import 'screens/discussion_list_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +46,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => AuthProvider()),
         ChangeNotifierProvider(create: (context) => TodoProvider()),
         ChangeNotifierProvider(create: (context) => EventProvider()),
+        ChangeNotifierProvider(create: (context) => DiscussionProvider()),
       ],
       child: MaterialApp(
         title: 'KDU Student System',
@@ -61,6 +64,7 @@ class MyApp extends StatelessWidget {
           '/todos': (context) => const TodoListScreen(),
           '/add-todo': (context) => const AddTodoScreen(),
           '/events': (context) => const EventsListScreen(),
+          '/discussions': (context) => const DiscussionListScreen(),
         },
       ),
     );

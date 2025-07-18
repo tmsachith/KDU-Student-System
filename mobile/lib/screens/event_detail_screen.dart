@@ -16,404 +16,441 @@ class EventDetailScreen extends StatefulWidget {
   State<EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
-class _EventDetailScreenState extends State<EventDetailScreen> {
+class _EventDetailScreenState extends State<EventDetailScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  bool _isImageExpanded = false;
+
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final event = widget.event; // Local reference for cleaner code
+    final event = widget.event;
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.event.title),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () => _shareEvent(context),
+      backgroundColor: colorScheme.surface,
+      body: CustomScrollView(
+        slivers: [
+          // Modern App Bar with Hero Image
+          SliverAppBar(
+            expandedHeight: widget.event.imageUrl != null ? 300 : 120,
+            floating: false,
+            pinned: true,
+            elevation: 0,
+            backgroundColor: colorScheme.primary,
+            foregroundColor: Colors.white,
+            flexibleSpace: FlexibleSpaceBar(
+              title: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  event.title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              background: widget.event.imageUrl != null
+                  ? GestureDetector(
+                      onTap: () => setState(() => _isImageExpanded = !_isImageExpanded),
+                      child: Hero(
+                        tag: 'event-image-${event.id}',
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withOpacity(0.7),
+                              ],
+                            ),
+                          ),
+                          child: Image.network(
+                            widget.event.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      colorScheme.primary,
+                                      colorScheme.primary.withOpacity(0.8),
+                                    ],
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.event,
+                                    size: 64,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            colorScheme.primary,
+                            colorScheme.primary.withOpacity(0.8),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+            actions: [
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.share_rounded),
+                  onPressed: () => _shareEvent(context),
+                ),
+              ),
+            ],
+          ),
+
+          // Content
+          SliverToBoxAdapter(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Status and Type Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildModernStatusChip(),
+                          _buildEventTypeChip(),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 24),
+
+                      // Event Title
+                      Text(
+                        event.title,
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 12),
+
+                      // Organizer Row
+                      _buildOrganizerRow(),
+                      
+                      const SizedBox(height: 32),
+
+                      // Quick Info Cards
+                      _buildQuickInfoSection(),
+                      
+                      const SizedBox(height: 32),
+
+                      // Description Card
+                      _buildDescriptionCard(),
+                      
+                      const SizedBox(height: 24),
+
+                      // Details Sections
+                      _buildDetailsSections(),
+                      
+                      const SizedBox(height: 100), // Space for FAB
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Event Image (if available)
-            if (widget.event.imageUrl != null)
-              Container(
-                height: 200,
-                width: double.infinity,
-                child: Image.network(
-                  widget.event.imageUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 200,
-                      color: Colors.grey[300],
-                      child: const Center(
-                        child: Icon(
-                          Icons.image_not_supported,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
+      floatingActionButton: _buildModernFAB(),
+    );
+  }
 
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Event Status
-                  Row(
-                    children: [
-                      _buildStatusChip(),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getEventTypeColor(event.eventType),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          event.eventTypeDisplayName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+  Widget _buildModernStatusChip() {
+    Color color;
+    String text;
+    IconData icon;
 
-                  // Event Title
-                  Text(
-                    event.title,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
+    if (widget.event.isOngoing) {
+      color = Colors.green;
+      text = 'Live Now';
+      icon = Icons.play_circle_filled;
+    } else if (widget.event.isUpcoming) {
+      color = Colors.blue;
+      text = 'Upcoming';
+      icon = Icons.schedule;
+    } else {
+      color = Colors.grey;
+      text = 'Ended';
+      icon = Icons.check_circle;
+    }
 
-                  // Organizer with club logo
-                  Row(
-                    children: [
-                      // Club logo if available
-                      if (event.clubLogoUrl != null &&
-                          event.clubLogoUrl!.isNotEmpty) ...[
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(6),
-                            border:
-                                Border.all(color: Colors.grey[300]!, width: 1),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(5),
-                            child: Image.network(
-                              event.clubLogoUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue,
-                                    borderRadius: BorderRadius.circular(5),
-                                  ),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.group,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                      ] else ...[
-                        Icon(
-                          Icons.group,
-                          size: 20,
-                          color: Colors.grey[600],
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      Expanded(
-                        child: Text(
-                          'Organized by ${event.organizer}',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Date and Time
-                  _buildInfoSection(
-                    icon: Icons.access_time,
-                    title: 'Date & Time',
-                    content: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Start: ${_formatDateTime(event.startDateTime)}',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        Text(
-                          'End: ${_formatDateTime(event.endDateTime)}',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Duration: ${_formatDuration(event.endDateTime.difference(event.startDateTime))}',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Location
-                  _buildInfoSection(
-                    icon: Icons.location_on,
-                    title: 'Location',
-                    content: Text(
-                      event.location,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-
-                  // Description
-                  _buildInfoSection(
-                    icon: Icons.description,
-                    title: 'Description',
-                    content: Text(
-                      event.description,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-
-                  // Category
-                  _buildInfoSection(
-                    icon: Icons.category,
-                    title: 'Category',
-                    content: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _getCategoryColor(event.category),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        event.categoryDisplayName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Tags
-                  if (event.tags.isNotEmpty)
-                    _buildInfoSection(
-                      icon: Icons.label,
-                      title: 'Tags',
-                      content: Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: event.tags.map((tag) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              tag,
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-
-                  // Registration Info
-                  if (event.registrationRequired)
-                    _buildInfoSection(
-                      icon: Icons.how_to_reg,
-                      title: 'Registration',
-                      content: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Registration Required',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color:
-                                  event.canRegister ? Colors.green : Colors.red,
-                            ),
-                          ),
-                          if (event.registrationDeadline != null)
-                            Text(
-                              'Deadline: ${_formatDateTime(event.registrationDeadline!)}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                              ),
-                            ),
-                          if (event.maxAttendees != null)
-                            Text(
-                              'Max Attendees: ${event.maxAttendees}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-
-                  // Contact Information
-                  if (event.contactEmail != null || event.contactPhone != null)
-                    _buildInfoSection(
-                      icon: Icons.contact_mail,
-                      title: 'Contact',
-                      content: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (event.contactEmail != null)
-                            InkWell(
-                              onTap: () => _launchEmail(event.contactEmail!),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.email,
-                                    size: 16,
-                                    color: Colors.blue,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    event.contactEmail!,
-                                    style: const TextStyle(
-                                      color: Colors.blue,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          if (event.contactPhone != null)
-                            InkWell(
-                              onTap: () => _launchPhone(event.contactPhone!),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.phone,
-                                    size: 16,
-                                    color: Colors.blue,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    event.contactPhone!,
-                                    style: const TextStyle(
-                                      color: Colors.blue,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-
-                  // Created Info
-                  if (event.createdAt != null)
-                    _buildInfoSection(
-                      icon: Icons.info,
-                      title: 'Event Info',
-                      content: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Created: ${_formatDateTime(event.createdAt!)}',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                          ),
-                          if (event.approvedAt != null)
-                            Text(
-                              'Approved: ${_formatDateTime(event.approvedAt!)}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _saveToCalendar(context),
-        icon: const Icon(Icons.calendar_today),
-        label: const Text('Save to Calendar'),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildInfoSection({
+  Widget _buildEventTypeChip() {
+    final color = _getEventTypeColor(widget.event.eventType);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        widget.event.eventTypeDisplayName,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrganizerRow() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          // Club logo or default avatar
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.primary.withOpacity(0.8),
+                ],
+              ),
+            ),
+            child: widget.event.clubLogoUrl != null &&
+                    widget.event.clubLogoUrl!.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      widget.event.clubLogoUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.group_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        );
+                      },
+                    ),
+                  )
+                : const Icon(
+                    Icons.group_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Organized by',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.event.organizer,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickInfoSection() {
+    return Column(
+      children: [
+        // Date & Time Card
+        _buildQuickInfoCard(
+          icon: Icons.access_time_rounded,
+          title: 'When',
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _formatDateTime(widget.event.startDateTime),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Duration: ${_formatDuration(widget.event.endDateTime.difference(widget.event.startDateTime))}',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Location Card
+        _buildQuickInfoCard(
+          icon: Icons.location_on_rounded,
+          title: 'Where',
+          content: Text(
+            widget.event.location,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickInfoCard({
     required IconData icon,
     required String title,
     required Widget content,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: Colors.grey[600],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-          const SizedBox(width: 12),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: Theme.of(context).colorScheme.primary,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[600],
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -426,38 +463,311 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
-  Widget _buildStatusChip() {
-    Color color;
-    String text;
-
-    if (widget.event.isOngoing) {
-      color = Colors.green;
-      text = 'Ongoing';
-    } else if (widget.event.isUpcoming) {
-      color = Colors.blue;
-      text = 'Upcoming';
-    } else {
-      color = Colors.grey;
-      text = 'Past';
-    }
-
+  Widget _buildDescriptionCard() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.description_rounded,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'About this event',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            widget.event.description,
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.5,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsSections() {
+    return Column(
+      children: [
+        // Category and Tags
+        _buildDetailsCard(
+          icon: Icons.category_rounded,
+          title: 'Category & Tags',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _getCategoryColor(widget.event.category),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  widget.event.categoryDisplayName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (widget.event.tags.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.event.tags.map((tag) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        tag,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // Registration Info
+        if (widget.event.registrationRequired) ...[
+          const SizedBox(height: 16),
+          _buildDetailsCard(
+            icon: Icons.how_to_reg_rounded,
+            title: 'Registration',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: widget.event.canRegister ? Colors.green : Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    widget.event.canRegister ? 'Open for Registration' : 'Registration Closed',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (widget.event.registrationDeadline != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Deadline: ${_formatDateTime(widget.event.registrationDeadline!)}',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+                if (widget.event.maxAttendees != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Max Attendees: ${widget.event.maxAttendees}',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+
+        // Contact Information
+        if (widget.event.contactEmail != null || widget.event.contactPhone != null) ...[
+          const SizedBox(height: 16),
+          _buildDetailsCard(
+            icon: Icons.contact_mail_rounded,
+            title: 'Contact',
+            child: Column(
+              children: [
+                if (widget.event.contactEmail != null)
+                  _buildContactItem(
+                    icon: Icons.email_rounded,
+                    text: widget.event.contactEmail!,
+                    onTap: () => _launchEmail(widget.event.contactEmail!),
+                  ),
+                if (widget.event.contactPhone != null) ...[
+                  if (widget.event.contactEmail != null) const SizedBox(height: 8),
+                  _buildContactItem(
+                    icon: Icons.phone_rounded,
+                    text: widget.event.contactPhone!,
+                    onTap: () => _launchPhone(widget.event.contactPhone!),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDetailsCard({
+    required IconData icon,
+    required String title,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactItem({
+    required IconData icon,
+    required String text,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ],
         ),
       ),
     );
   }
 
+  Widget _buildModernFAB() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: FloatingActionButton.extended(
+        onPressed: () => _saveToCalendar(context),
+        elevation: 0,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.calendar_today_rounded),
+        label: const Text(
+          'Add to Calendar',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+
+  // Helper methods remain the same
   Color _getEventTypeColor(String eventType) {
     switch (eventType) {
       case 'university':
@@ -518,8 +828,11 @@ ${widget.event.description}
 
     Clipboard.setData(ClipboardData(text: eventText));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Event details copied to clipboard!'),
+      SnackBar(
+        content: const Text('Event details copied to clipboard!'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -528,8 +841,7 @@ ${widget.event.description}
     final Uri emailUri = Uri(
       scheme: 'mailto',
       path: email,
-      query:
-          'subject=${Uri.encodeComponent('Regarding ${widget.event.title}')}',
+      query: 'subject=${Uri.encodeComponent('Regarding ${widget.event.title}')}',
     );
 
     if (await canLaunchUrl(emailUri)) {
@@ -548,8 +860,7 @@ ${widget.event.description}
   void _saveToCalendar(BuildContext context) {
     final calendar.Event calendarEvent = calendar.Event(
       title: widget.event.title,
-      description:
-          '${widget.event.description}\n\nOrganizer: ${widget.event.organizer}',
+      description: '${widget.event.description}\n\nOrganizer: ${widget.event.organizer}',
       location: widget.event.location,
       startDate: widget.event.startDateTime,
       endDate: widget.event.endDateTime,
@@ -557,21 +868,13 @@ ${widget.event.description}
     );
 
     calendar.Add2Calendar.addEvent2Cal(calendarEvent).then((success) {
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Event saved to calendar!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save event to calendar'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      final snackBar = SnackBar(
+        content: Text(success ? 'Event saved to calendar!' : 'Failed to save event to calendar'),
+        backgroundColor: success ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
     });
   }
 }
