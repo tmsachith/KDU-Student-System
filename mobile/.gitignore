@@ -214,3 +214,5 @@ test/.test_coverage.dart
 *.db
 *.sqlite
 *.sqlite3
+
+MY_DISCUSSIONS_FEATURE_COMPLETE.md

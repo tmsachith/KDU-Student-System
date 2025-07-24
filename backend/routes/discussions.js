@@ -24,6 +24,11 @@ router.get('/', optionalAuthenticate, async (req, res) => {
     // Build query
     let query = { isDeleted: false };
 
+    // Only show approved discussions to regular users, unless they're viewing their own discussions
+    if (!author || author !== req.user?.id) {
+      query.isApproved = true;
+    }
+
     if (category && category !== 'all') {
       query.category = category;
     }
@@ -107,14 +112,28 @@ router.get('/:id', optionalAuthenticate, async (req, res) => {
       .populate('comments.author', 'name email profileImageUrl')
       .populate('comments.replies.author', 'name email profileImageUrl')
       .populate('comments.replies.replies.author', 'name email profileImageUrl')
-      .populate('comments.replies.replies.replies.author', 'name email profileImageUrl');
+      .populate('comments.replies.replies.replies.author', 'name email profileImageUrl')
+      .populate('approvedBy', 'name email')
+      .populate('rejectedBy', 'name email')
+      .populate('adminFeedback.sentBy', 'name email role');
 
     if (!discussion || discussion.isDeleted) {
       return res.status(404).json({ message: 'Discussion not found' });
     }
 
-    // Increment view count
-    await discussion.incrementViewCount();
+    // Check if user can view this discussion
+    const canView = discussion.isApproved || 
+                   (req.user && discussion.author._id.toString() === req.user.id) ||
+                   (req.user && req.user.role === 'admin');
+
+    if (!canView) {
+      return res.status(403).json({ message: 'Discussion not available' });
+    }
+
+    // Increment view count only for approved discussions
+    if (discussion.isApproved) {
+      await discussion.incrementViewCount();
+    }
 
     // Helper function to add computed fields to comments recursively
     const addCommentFields = (comment, userId) => {
@@ -156,7 +175,9 @@ router.post('/', authenticateToken, async (req, res) => {
       content: content.trim(),
       author: req.user.id,
       category: category || 'general',
-      tags: tags ? tags.map(tag => tag.trim()).filter(tag => tag) : []
+      tags: tags ? tags.map(tag => tag.trim()).filter(tag => tag) : [],
+      status: 'pending', // Set initial status as pending
+      isApproved: false
     });
 
     const savedDiscussion = await discussion.save();
@@ -547,6 +568,385 @@ router.get('/stats/overview', async (req, res) => {
   } catch (error) {
     console.error('Error fetching stats:', error);
     res.status(500).json({ message: 'Error fetching statistics' });
+  }
+});
+
+// ================== ADMIN APPROVAL ROUTES ==================
+
+// @route   GET /api/discussions/admin/all
+// @desc    Get all discussions for admin review
+// @access  Private (Admin only)
+router.get('/admin/all', 
+  authenticateToken, 
+  async (req, res) => {
+    try {
+      const user = await User.findById(req.user.id);
+      if (user.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const {
+        status = 'all',
+        category,
+        search,
+        page = 1,
+        limit = 10
+      } = req.query;
+
+      const pageNum = parseInt(page);
+      const limitNum = parseInt(limit);
+      const skip = (pageNum - 1) * limitNum;
+
+      // Build query
+      let query = { isDeleted: false };
+
+      if (status !== 'all') {
+        if (status === 'pending') {
+          query.status = 'pending';
+        } else if (status === 'approved') {
+          query.isApproved = true;
+        } else if (status === 'rejected') {
+          query.status = 'rejected';
+        } else if (status === 'needs_update') {
+          query.status = 'needs_update';
+        }
+      }
+
+      if (category && category !== 'all') {
+        query.category = category;
+      }
+
+      if (search) {
+        query.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { content: { $regex: search, $options: 'i' } }
+        ];
+      }
+
+      const discussions = await Discussion.find(query)
+        .populate('author', 'name email profileImageUrl role')
+        .populate('approvedBy', 'name email')
+        .populate('rejectedBy', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean();
+
+      const total = await Discussion.countDocuments(query);
+
+      // Get statistics
+      const stats = {
+        total: await Discussion.countDocuments({ isDeleted: false }),
+        pending: await Discussion.countDocuments({ status: 'pending', isDeleted: false }),
+        approved: await Discussion.countDocuments({ isApproved: true, isDeleted: false }),
+        rejected: await Discussion.countDocuments({ status: 'rejected', isDeleted: false }),
+        needsUpdate: await Discussion.countDocuments({ status: 'needs_update', isDeleted: false })
+      };
+
+      res.json({
+        discussions,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(total / limitNum),
+          totalItems: total,
+          itemsPerPage: limitNum,
+          hasNextPage: pageNum < Math.ceil(total / limitNum),
+          hasPreviousPage: pageNum > 1
+        },
+        statistics: stats
+      });
+    } catch (error) {
+      console.error('Error fetching admin discussions:', error);
+      res.status(500).json({ message: 'Error fetching discussions' });
+    }
+  }
+);
+
+// @route   PUT /api/discussions/:id/approve
+// @desc    Approve discussion (Admin only)
+// @access  Private (Admin only)
+router.put('/:id/approve', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const discussionId = req.params.id;
+    const discussion = await Discussion.findById(discussionId);
+
+    if (!discussion) {
+      return res.status(404).json({ message: 'Discussion not found' });
+    }
+
+    if (discussion.isApproved) {
+      return res.status(400).json({ message: 'Discussion is already approved' });
+    }
+
+    discussion.isApproved = true;
+    discussion.status = 'approved';
+    discussion.approvedBy = req.user.id;
+    discussion.approvedAt = new Date();
+    discussion.rejectedBy = null;
+    discussion.rejectedAt = null;
+    discussion.rejectionReason = null;
+
+    await discussion.save();
+
+    const populatedDiscussion = await Discussion.findById(discussionId)
+      .populate('author', 'name email profileImageUrl')
+      .populate('approvedBy', 'name email');
+
+    res.json({
+      message: 'Discussion approved successfully',
+      discussion: populatedDiscussion
+    });
+  } catch (error) {
+    console.error('Error approving discussion:', error);
+    res.status(500).json({ message: 'Error approving discussion' });
+  }
+});
+
+// @route   PUT /api/discussions/:id/reject
+// @desc    Reject discussion (Admin only)
+// @access  Private (Admin only)
+router.put('/:id/reject', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const discussionId = req.params.id;
+    const { reason } = req.body;
+
+    const discussion = await Discussion.findById(discussionId);
+
+    if (!discussion) {
+      return res.status(404).json({ message: 'Discussion not found' });
+    }
+
+    if (discussion.status === 'rejected') {
+      return res.status(400).json({ message: 'Discussion is already rejected' });
+    }
+
+    discussion.isApproved = false;
+    discussion.status = 'rejected';
+    discussion.rejectedBy = req.user.id;
+    discussion.rejectedAt = new Date();
+    discussion.rejectionReason = reason || 'No reason provided';
+    discussion.approvedBy = null;
+    discussion.approvedAt = null;
+
+    await discussion.save();
+
+    const populatedDiscussion = await Discussion.findById(discussionId)
+      .populate('author', 'name email profileImageUrl')
+      .populate('rejectedBy', 'name email');
+
+    res.json({
+      message: 'Discussion rejected successfully',
+      discussion: populatedDiscussion
+    });
+  } catch (error) {
+    console.error('Error rejecting discussion:', error);
+    res.status(500).json({ message: 'Error rejecting discussion' });
+  }
+});
+
+// @route   POST /api/discussions/:id/feedback
+// @desc    Send feedback to discussion author (Admin only)
+// @access  Private (Admin only)
+router.post('/:id/feedback', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const { message } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: 'Feedback message is required' });
+    }
+
+    const discussion = await Discussion.findById(req.params.id);
+
+    if (!discussion) {
+      return res.status(404).json({ message: 'Discussion not found' });
+    }
+
+    discussion.adminFeedback.push({
+      message: message.trim(),
+      sentBy: req.user.id,
+      sentAt: new Date(),
+      isRead: false
+    });
+
+    discussion.status = 'needs_update';
+    discussion.isApproved = false;
+
+    await discussion.save();
+
+    const populatedDiscussion = await Discussion.findById(req.params.id)
+      .populate('adminFeedback.sentBy', 'name email role')
+      .populate('author', 'name email');
+
+    res.json({
+      message: 'Feedback sent successfully',
+      discussion: populatedDiscussion
+    });
+  } catch (error) {
+    console.error('Error sending feedback:', error);
+    res.status(500).json({ message: 'Error sending feedback' });
+  }
+});
+
+// @route   GET /api/discussions/:id/feedback
+// @desc    Get feedback messages for a discussion
+// @access  Private (Author or Admin only)
+router.get('/:id/feedback', authenticateToken, async (req, res) => {
+  try {
+    const discussionId = req.params.id;
+
+    const discussion = await Discussion.findById(discussionId)
+      .populate('adminFeedback.sentBy', 'name email role')
+      .select('adminFeedback author');
+
+    if (!discussion) {
+      return res.status(404).json({ message: 'Discussion not found' });
+    }
+
+    const user = await User.findById(req.user.id);
+    // Check if user is the discussion author or admin
+    if (discussion.author.toString() !== req.user.id && user.role !== 'admin') {
+      return res.status(403).json({ message: 'You can only view feedback for your own discussions' });
+    }
+
+    res.json({
+      feedback: discussion.adminFeedback,
+      discussionId: discussionId
+    });
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
+    res.status(500).json({ message: 'Error fetching feedback' });
+  }
+});
+
+// @route   PUT /api/discussions/:id/feedback/:feedbackId/read
+// @desc    Mark feedback message as read (Author only)
+// @access  Private (Author only)
+router.put('/:id/feedback/:feedbackId/read', authenticateToken, async (req, res) => {
+  try {
+    const { id: discussionId, feedbackId } = req.params;
+
+    const discussion = await Discussion.findById(discussionId);
+
+    if (!discussion) {
+      return res.status(404).json({ message: 'Discussion not found' });
+    }
+
+    // Check if user is the discussion author
+    if (discussion.author.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'You can only mark feedback for your own discussions as read' });
+    }
+
+    // Find and mark the feedback as read
+    const feedback = discussion.adminFeedback.id(feedbackId);
+    if (!feedback) {
+      return res.status(404).json({ message: 'Feedback message not found' });
+    }
+
+    feedback.isRead = true;
+    await discussion.save();
+
+    res.json({
+      message: 'Feedback marked as read',
+      feedbackId: feedbackId
+    });
+  } catch (error) {
+    console.error('Error marking feedback as read:', error);
+    res.status(500).json({ message: 'Error updating feedback' });
+  }
+});
+
+// @route   GET /api/discussions/user/my-discussions
+// @desc    Get current user's discussions with all statuses
+// @access  Private
+router.get('/user/my-discussions', authenticateToken, async (req, res) => {
+  try {
+    const {
+      status = 'all',
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build query
+    let query = { 
+      author: req.user.id,
+      isDeleted: false 
+    };
+
+    if (status !== 'all') {
+      if (status === 'pending') {
+        query.status = 'pending';
+      } else if (status === 'approved') {
+        query.isApproved = true;
+      } else if (status === 'rejected') {
+        query.status = 'rejected';
+      } else if (status === 'needs_update') {
+        query.status = 'needs_update';
+      }
+    }
+
+    const discussions = await Discussion.find(query)
+      .populate('author', 'name email profileImageUrl')
+      .populate('approvedBy', 'name email')
+      .populate('rejectedBy', 'name email')
+      .populate('adminFeedback.sentBy', 'name email role')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    const total = await Discussion.countDocuments(query);
+
+    // Get statistics for user's discussions
+    const stats = {
+      total: await Discussion.countDocuments({ author: req.user.id, isDeleted: false }),
+      pending: await Discussion.countDocuments({ author: req.user.id, status: 'pending', isDeleted: false }),
+      approved: await Discussion.countDocuments({ author: req.user.id, isApproved: true, isDeleted: false }),
+      rejected: await Discussion.countDocuments({ author: req.user.id, status: 'rejected', isDeleted: false }),
+      needsUpdate: await Discussion.countDocuments({ author: req.user.id, status: 'needs_update', isDeleted: false })
+    };
+
+    // Add computed fields
+    const discussionsWithExtras = discussions.map(discussion => ({
+      ...discussion.toObject(),
+      likeCount: discussion.likes?.length || 0,
+      commentCount: discussion.comments?.filter(comment => !comment.isDeleted).length || 0,
+      isLikedByUser: discussion.likes?.some(like => like.user.toString() === req.user.id) || false,
+      unreadFeedbackCount: discussion.adminFeedback?.filter(feedback => !feedback.isRead).length || 0
+    }));
+
+    res.json({
+      discussions: discussionsWithExtras,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
+        totalItems: total,
+        itemsPerPage: limitNum,
+        hasNextPage: pageNum < Math.ceil(total / limitNum),
+        hasPreviousPage: pageNum > 1
+      },
+      statistics: stats
+    });
+  } catch (error) {
+    console.error('Error fetching user discussions:', error);
+    res.status(500).json({ message: 'Error fetching user discussions' });
   }
 });
 

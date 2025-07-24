@@ -254,6 +254,14 @@ class _DiscussionDetailScreenState extends State<DiscussionDetailScreen> {
                       _buildDiscussionHeader(discussion),
                       const SizedBox(height: 16),
 
+                      // Status info for discussion author
+                      Consumer<AuthProvider>(
+                        builder: (context, authProvider, child) {
+                          final isAuthor = authProvider.user?.id == discussion.author.id;
+                          return _buildStatusInfo(discussion, isAuthor);
+                        },
+                      ),
+
                       // Discussion content
                       _buildDiscussionContent(discussion),
                       const SizedBox(height: 16),
@@ -612,6 +620,183 @@ class _DiscussionDetailScreenState extends State<DiscussionDetailScreen> {
     );
   }
 
+  Widget _buildStatusInfo(Discussion discussion, bool isAuthor) {
+    if (!isAuthor) return const SizedBox.shrink();
+
+    Color statusColor;
+    IconData statusIcon;
+    String statusMessage;
+
+    switch (discussion.status) {
+      case 'pending':
+        statusColor = Colors.amber;
+        statusIcon = Icons.hourglass_empty;
+        statusMessage = 'Your discussion is pending admin approval.';
+        break;
+      case 'approved':
+        statusColor = Colors.green;
+        statusIcon = Icons.check_circle;
+        statusMessage = 'Your discussion has been approved and is now public.';
+        break;
+      case 'rejected':
+        statusColor = Colors.red;
+        statusIcon = Icons.cancel;
+        statusMessage = 'Your discussion was rejected. ${discussion.rejectionReason ?? ''}';
+        break;
+      case 'needs_update':
+        statusColor = Colors.orange;
+        statusIcon = Icons.update;
+        statusMessage = 'Your discussion needs updates based on admin feedback.';
+        break;
+      default:
+        return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(statusIcon, color: statusColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Discussion Status',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: statusColor,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            statusMessage,
+            style: TextStyle(
+              color: statusColor.withOpacity(0.8),
+              fontSize: 14,
+            ),
+          ),
+          if (discussion.status == 'needs_update' && discussion.adminFeedback.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () => _showFeedbackDialog(discussion),
+              icon: const Icon(Icons.feedback, size: 16),
+              label: const Text('View Admin Feedback'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: statusColor,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+          if (discussion.status == 'rejected' || discussion.status == 'needs_update') ...[
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () => _editDiscussion(discussion),
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text('Edit & Resubmit'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showFeedbackDialog(Discussion discussion) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Admin Feedback'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'The admin has provided feedback on your discussion:',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: discussion.adminFeedback.length,
+                  itemBuilder: (context, index) {
+                    final feedback = discussion.adminFeedback[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                feedback.sentBy.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                _formatDate(feedback.sentAt),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            feedback.message,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _editDiscussion(discussion);
+            },
+            child: const Text('Edit Discussion'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _editDiscussion(Discussion discussion) {
     Navigator.push(
       context,
@@ -824,11 +1009,11 @@ class _DiscussionDetailScreenState extends State<DiscussionDetailScreen> {
     if (difference.inDays > 7) {
       return '${date.day}/${date.month}/${date.year}';
     } else if (difference.inDays > 0) {
-      return '${difference.inDays} days ago';
+      return '${difference.inDays}d ago';
     } else if (difference.inHours > 0) {
-      return '${difference.inHours} hours ago';
+      return '${difference.inHours}h ago';
     } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} minutes ago';
+      return '${difference.inMinutes}m ago';
     } else {
       return 'Just now';
     }

@@ -138,6 +138,60 @@ const discussionSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  // Admin approval system
+  isApproved: {
+    type: Boolean,
+    default: false,
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  approvedAt: {
+    type: Date,
+    default: null,
+  },
+  rejectedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  rejectedAt: {
+    type: Date,
+    default: null,
+  },
+  rejectionReason: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Rejection reason cannot exceed 500 characters'],
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected', 'needs_update'],
+    default: 'pending',
+  },
+  adminFeedback: [{
+    message: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: [1000, 'Feedback message cannot exceed 1000 characters'],
+    },
+    sentBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    sentAt: {
+      type: Date,
+      default: Date.now,
+    },
+    isRead: {
+      type: Boolean,
+      default: false,
+    },
+  }],
   createdAt: {
     type: Date,
     default: Date.now,

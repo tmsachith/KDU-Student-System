@@ -16,6 +16,16 @@ class Discussion {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // Admin approval fields
+  final bool isApproved;
+  final String? approvedBy;
+  final DateTime? approvedAt;
+  final String? rejectedBy;
+  final DateTime? rejectedAt;
+  final String? rejectionReason;
+  final String status; // 'pending', 'approved', 'rejected', 'needs_update'
+  final List<AdminFeedback> adminFeedback;
+
   // Computed properties
   final int likeCount;
   final int commentCount;
@@ -38,6 +48,14 @@ class Discussion {
     required this.isLocked,
     required this.createdAt,
     required this.updatedAt,
+    required this.isApproved,
+    this.approvedBy,
+    this.approvedAt,
+    this.rejectedBy,
+    this.rejectedAt,
+    this.rejectionReason,
+    required this.status,
+    required this.adminFeedback,
     required this.likeCount,
     required this.commentCount,
     required this.isLikedByUser,
@@ -79,6 +97,22 @@ class Discussion {
           DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
       updatedAt:
           DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
+      // Admin approval fields
+      isApproved: json['isApproved'] ?? false,
+      approvedBy: json['approvedBy'] is Map ? json['approvedBy']['name'] : null,
+      approvedAt: json['approvedAt'] != null
+          ? DateTime.parse(json['approvedAt']).toLocal()
+          : null,
+      rejectedBy: json['rejectedBy'] is Map ? json['rejectedBy']['name'] : null,
+      rejectedAt: json['rejectedAt'] != null
+          ? DateTime.parse(json['rejectedAt']).toLocal()
+          : null,
+      rejectionReason: json['rejectionReason'],
+      status: json['status'] ?? 'pending',
+      adminFeedback: (json['adminFeedback'] as List<dynamic>?)
+              ?.map((feedback) => AdminFeedback.fromJson(feedback))
+              .toList() ??
+          [],
       likeCount: json['likeCount'] ?? 0,
       commentCount: json['commentCount'] ?? 0,
       isLikedByUser: json['isLikedByUser'] ?? false,
@@ -103,6 +137,14 @@ class Discussion {
       'isLocked': isLocked,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'isApproved': isApproved,
+      'approvedBy': approvedBy,
+      'approvedAt': approvedAt?.toIso8601String(),
+      'rejectedBy': rejectedBy,
+      'rejectedAt': rejectedAt?.toIso8601String(),
+      'rejectionReason': rejectionReason,
+      'status': status,
+      'adminFeedback': adminFeedback.map((feedback) => feedback.toJson()).toList(),
       'likeCount': likeCount,
       'commentCount': commentCount,
       'isLikedByUser': isLikedByUser,
@@ -126,6 +168,14 @@ class Discussion {
     bool? isLocked,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? isApproved,
+    String? approvedBy,
+    DateTime? approvedAt,
+    String? rejectedBy,
+    DateTime? rejectedAt,
+    String? rejectionReason,
+    String? status,
+    List<AdminFeedback>? adminFeedback,
     int? likeCount,
     int? commentCount,
     bool? isLikedByUser,
@@ -147,10 +197,32 @@ class Discussion {
       isLocked: isLocked ?? this.isLocked,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isApproved: isApproved ?? this.isApproved,
+      approvedBy: approvedBy ?? this.approvedBy,
+      approvedAt: approvedAt ?? this.approvedAt,
+      rejectedBy: rejectedBy ?? this.rejectedBy,
+      rejectedAt: rejectedAt ?? this.rejectedAt,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
+      status: status ?? this.status,
+      adminFeedback: adminFeedback ?? this.adminFeedback,
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
       isLikedByUser: isLikedByUser ?? this.isLikedByUser,
     );
+  }
+
+  // Status helper methods
+  bool get isPending => status == 'pending';
+  bool get isApprovedStatus => isApproved;
+  bool get isRejected => status == 'rejected';
+  bool get needsUpdate => status == 'needs_update';
+  
+  // Get unread feedback count
+  int get unreadFeedbackCount => adminFeedback.where((feedback) => !feedback.isRead).length;
+  
+  // Get status display name
+  String get statusDisplayName {
+    return DiscussionStatusExtension.fromString(status).displayName;
   }
 
   bool get isUpcoming => false; // Not applicable for discussions
@@ -381,6 +453,101 @@ class User {
       'currentProfileImageUrl': currentProfileImageUrl,
       'role': role,
     };
+  }
+}
+
+// AdminFeedback class
+class AdminFeedback {
+  final String id;
+  final String message;
+  final User sentBy;
+  final DateTime sentAt;
+  final bool isRead;
+
+  AdminFeedback({
+    required this.id,
+    required this.message,
+    required this.sentBy,
+    required this.sentAt,
+    required this.isRead,
+  });
+
+  factory AdminFeedback.fromJson(Map<String, dynamic> json) {
+    return AdminFeedback(
+      id: json['_id'] ?? '',
+      message: json['message'] ?? '',
+      sentBy: json['sentBy'] != null
+          ? User.fromJson(json['sentBy'])
+          : User(
+              id: '',
+              name: 'Unknown Admin',
+              email: '',
+              role: 'admin',
+            ),
+      sentAt: DateTime.parse(json['sentAt'] ?? DateTime.now().toIso8601String()),
+      isRead: json['isRead'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'message': message,
+      'sentBy': sentBy.toJson(),
+      'sentAt': sentAt.toIso8601String(),
+      'isRead': isRead,
+    };
+  }
+}
+
+// Discussion Status enum
+enum DiscussionStatus {
+  pending,
+  approved,
+  rejected,
+  needsUpdate,
+}
+
+extension DiscussionStatusExtension on DiscussionStatus {
+  String get value {
+    switch (this) {
+      case DiscussionStatus.pending:
+        return 'pending';
+      case DiscussionStatus.approved:
+        return 'approved';
+      case DiscussionStatus.rejected:
+        return 'rejected';
+      case DiscussionStatus.needsUpdate:
+        return 'needs_update';
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case DiscussionStatus.pending:
+        return 'Pending Approval';
+      case DiscussionStatus.approved:
+        return 'Approved';
+      case DiscussionStatus.rejected:
+        return 'Rejected';
+      case DiscussionStatus.needsUpdate:
+        return 'Needs Update';
+    }
+  }
+
+  static DiscussionStatus fromString(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return DiscussionStatus.pending;
+      case 'approved':
+        return DiscussionStatus.approved;
+      case 'rejected':
+        return DiscussionStatus.rejected;
+      case 'needs_update':
+        return DiscussionStatus.needsUpdate;
+      default:
+        return DiscussionStatus.pending;
+    }
   }
 }
 

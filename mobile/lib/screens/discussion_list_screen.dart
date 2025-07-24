@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../models/discussion.dart';
 import 'discussion_detail_screen.dart';
 import 'create_discussion_screen.dart';
+import 'my_discussions_screen.dart';
 import '../widgets/discussion_card.dart';
 import '../widgets/discussion_filters.dart';
 
@@ -135,6 +136,19 @@ class _DiscussionListScreenState extends State<DiscussionListScreen> {
               icon: const Icon(Icons.search),
               onPressed: _startSearch,
             ),
+          // My Discussions button
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MyDiscussionsScreen(),
+                ),
+              );
+            },
+            tooltip: 'My Discussions',
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               final authProvider =

@@ -3,13 +3,14 @@ import { useAuth } from '../context/AuthContext';
 import UserManagement from './UserManagement';
 import EventManagement from './EventManagement';
 import AdminEventManagement from './AdminEventManagement';
+import AdminDiscussionManagement from './AdminDiscussionManagement';
 import { userAPI, eventAPI, profileAPI } from '../services/api';
 
 const Dashboard: React.FC = () => {
   const { user, logout, getVerificationStatus, updateUser, refreshUser } = useAuth();
   const [verificationStatus, setVerificationStatus] = useState<any>(null);
   const [statusLoading, setStatusLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'user-management' | 'event-management' | 'admin-events'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'user-management' | 'event-management' | 'admin-events' | 'admin-discussions'>('dashboard');
   
   // Dashboard insights state
   const [dashboardStats, setDashboardStats] = useState<any>(null);
@@ -330,6 +331,16 @@ const Dashboard: React.FC = () => {
                   >
                     Event Management
                   </button>
+                  <button
+                    onClick={() => setCurrentView('admin-discussions')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                      currentView === 'admin-discussions'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Discussion Management
+                  </button>
                 </div>
               )}
               
@@ -412,6 +423,8 @@ const Dashboard: React.FC = () => {
           <UserManagement />
         ) : currentView === 'admin-events' ? (
           <AdminEventManagement />
+        ) : currentView === 'admin-discussions' ? (
+          <AdminDiscussionManagement />
         ) : currentView === 'event-management' ? (
           <EventManagement onUnreadCountChange={fetchUnreadFeedbackCount} />
         ) : (
@@ -1019,6 +1032,12 @@ const Dashboard: React.FC = () => {
                         className="w-full text-left px-3 py-2 text-sm bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition-colors"
                       >
                         👥 Manage Users
+                      </button>
+                      <button 
+                        onClick={() => setCurrentView('admin-discussions')}
+                        className="w-full text-left px-3 py-2 text-sm bg-orange-50 text-orange-700 rounded-md hover:bg-orange-100 transition-colors"
+                      >
+                        💬 Manage Discussions
                       </button>
                     </>
                   )}

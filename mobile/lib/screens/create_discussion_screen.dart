@@ -94,8 +94,9 @@ class _CreateDiscussionScreenState extends State<CreateDiscussionScreen> {
           SnackBar(
             content: Text(isEditing
                 ? 'Discussion updated successfully!'
-                : 'Discussion created successfully!'),
+                : 'Discussion submitted successfully! It will be reviewed by admin before being published.'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
