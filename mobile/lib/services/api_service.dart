@@ -3,12 +3,11 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../models/event.dart';
+import '../config/environment.dart';
 
 class ApiService {
-  static const String baseUrl =
-      'http://10.0.2.2:5000/api'; // For Android emulator
-  // Use 'http://localhost:5000/api' for iOS simulator
-  // Use your actual IP address for physical devices
+  // Smart URL selection based on environment
+  static String get baseUrl => Environment.apiUrl;
 
   static Map<String, String> get headers => {
         'Content-Type': 'application/json',
@@ -21,8 +20,23 @@ class ApiService {
     };
   }
 
+  // Debug method to check environment
+  static void printDebugInfo() {
+    print('=== API Service Debug Info ===');
+    print('Environment: ${Environment.currentEnvironment}');
+    print('API URL: $baseUrl');
+    print('Is Development: ${Environment.isDevelopment}');
+    print('Is Production: ${Environment.isProduction}');
+    print('==============================');
+  }
+
   // Login
   static Future<AuthResponse> login(String email, String password) async {
+    // Print debug info in development
+    if (Environment.isDevelopment) {
+      printDebugInfo();
+    }
+
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: headers,

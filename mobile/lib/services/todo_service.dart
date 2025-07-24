@@ -4,7 +4,8 @@ import '../models/todo.dart';
 import 'api_service.dart';
 
 class TodoService {
-  static const String baseUrl = ApiService.baseUrl;
+  static String get baseUrl => ApiService.baseUrl;
+
   // Get all todos for the current user
   static Future<List<Todo>> getTodos(String token) async {
     try {

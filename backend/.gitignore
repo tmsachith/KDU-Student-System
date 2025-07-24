@@ -187,3 +187,8 @@ coverage/
 app.log
 error.log
 access.log
+.vercel
+
+JWT_FIX_APPLIED.md
+QUICK_REFERENCE.md
+STEP_BY_STEP_DEPLOYMENT_GUIDE.md
